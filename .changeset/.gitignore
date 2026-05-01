@@ -1,0 +1,3 @@
+# Changesets are committed, but pre-release snapshots are not
+*.md
+!README.md

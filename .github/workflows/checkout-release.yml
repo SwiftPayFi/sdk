@@ -1,0 +1,107 @@
+name: sdk/checkout · release
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'checkout/**'
+      - '.changeset/**'
+      - '.github/workflows/checkout-release.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: sdk-checkout-release-${{ github.ref }}
+  cancel-in-progress: false
+
+# Permissions needed by npm provenance attestation and AWS OIDC.
+permissions:
+  contents: write      # commit version bumps + tags
+  pull-requests: write # open/update version PR
+  id-token: write      # AWS OIDC + npm provenance
+
+jobs:
+  version-or-publish:
+    name: version or publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: checkout/package-lock.json
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install
+        working-directory: checkout
+        run: npm ci
+
+      - name: Build
+        working-directory: checkout
+        run: npm run build
+
+      # Changesets: either opens version PR or publishes (depending on branch)
+      - name: Create version PR or publish
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          cwd: checkout
+          version: npm run version
+          publish: npm run release
+          commit: 'chore(sdk/checkout): version bump'
+          title: 'chore(sdk/checkout): version packages'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'
+
+      # Extract version for S3 upload
+      - name: Extract version
+        id: version
+        working-directory: checkout
+        if: steps.changesets.outputs.published == 'true'
+        run: echo "VERSION=$(jq -r .version package.json)" >> $GITHUB_OUTPUT
+
+      # Determine release tag (beta on dev, latest on main)
+      - name: Determine release tag
+        id: tag
+        if: steps.changesets.outputs.published == 'true'
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
+            echo "TAG=beta"
+          else
+            echo "TAG=latest"
+          fi >> $GITHUB_OUTPUT
+
+      # Configure AWS credentials for S3 upload
+      - name: Configure AWS credentials
+        if: steps.changesets.outputs.published == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: us-east-1
+
+      # Upload IIFE to S3 with version and tag
+      - name: Publish IIFE to S3
+        if: steps.changesets.outputs.published == 'true'
+        working-directory: checkout
+        run: |
+          # Upload versioned file (immutable, long cache)
+          aws s3 cp dist/index.iife.js s3://${{ secrets.AWS_S3_BUCKET }}/checkout@${{ steps.version.outputs.VERSION }}/index.iife.js \
+            --cache-control "public, max-age=31536000, immutable" \
+            --content-type "application/javascript"
+
+          # Upload tag file (shorter cache)
+          aws s3 cp dist/index.iife.js s3://${{ secrets.AWS_S3_BUCKET }}/checkout@${{ steps.tag.outputs.TAG }}/index.iife.js \
+            --cache-control "public, max-age=3600" \
+            --content-type "application/javascript"
+        env:
+          AWS_REGION: us-east-1
+
+      - name: Package info
+        working-directory: checkout
+        if: steps.changesets.outputs.published == 'true'
+        run: npm pack --dry-run

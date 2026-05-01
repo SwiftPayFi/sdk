@@ -1,0 +1,39 @@
+{
+  "name": "@swiftpay/checkout-sdk",
+  "version": "0.1.0",
+  "description": "SwiftPay browser + React checkout SDK",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js"
+    }
+  },
+  "scripts": {
+    "build": "npm run build:types && npm run build:esm && npm run build:iife",
+    "build:types": "tsc -p . --emitDeclarationOnly --outDir dist",
+    "build:esm": "esbuild src/index.ts src/react.ts --bundle --minify --format=esm --outdir=dist --packages=external",
+    "build:iife": "esbuild src/index.ts --bundle --minify --format=iife --global-name=SwiftPayCheckout --outfile=dist/index.iife.js --packages=external",
+    "dev": "tsc -p . --watch",
+    "version": "changeset version",
+    "release": "npm run build && npm publish"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@changesets/changelog-github": "^0.6.0",
+    "@changesets/cli": "^2.31.0",
+    "@types/react": "^19.2.14",
+    "esbuild": "^0.21.5",
+    "typescript": "^5.9.3"
+  }
+}

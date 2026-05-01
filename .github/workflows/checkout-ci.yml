@@ -1,0 +1,49 @@
+name: sdk/checkout · ci
+
+on:
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'checkout/**'
+      - '.github/workflows/checkout-ci.yml'
+  push:
+    branches: [main, dev, 'feat/**']
+    paths:
+      - 'checkout/**'
+      - '.github/workflows/checkout-ci.yml'
+
+# Cancel older runs on the same ref so the latest push wins.
+concurrency:
+  group: sdk-checkout-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: typecheck · build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: checkout
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: checkout/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run build:types
+
+      - name: Build (ESM)
+        run: npm run build:esm
+
+      - name: Build (IIFE)
+        run: npm run build:iife
+
+      - name: Pack (verify publish payload)
+        run: npm pack --dry-run

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://docs.bump.sh/integration-with-changesets/schema.json",
+  "changelog": [
+    "@changesets/changelog-github",
+    { "repo": "theigwe/swiftpay-finance" }
+  ],
+  "commit": false,
+  "fixed": [],
+  "linked": [],
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": ["nodejs"],
+  "privatePackages": false,
+  "snapshot": {
+    "useCalverVersioningScheme": false,
+    "prereleaseTemplate": "0.0.0-{tag}.{datetime}"
+  }
+}
