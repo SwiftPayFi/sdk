@@ -1,0 +1,9 @@
+# Build outputs
+dist/
+*.tsbuildinfo
+
+# Dependencies (inherited from parent, but explicit here)
+node_modules/
+
+# Logs
+*.log

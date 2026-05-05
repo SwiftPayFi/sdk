@@ -1,0 +1,23 @@
+{
+  "name": "@swiftpayfi/example-express",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "test:x402": "tsx src/test-x402-payment.ts /v1/sentiment"
+  },
+  "dependencies": {
+    "@swiftpayfi/api-client": "file:../../nodejs",
+    "@swiftpayfi/x402-node-guard": "file:../../x402-node-guard",
+    "dotenv": "^17.4.2",
+    "ethers": "^6.13.0",
+    "express": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.7.0"
+  }
+}

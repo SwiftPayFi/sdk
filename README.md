@@ -8,14 +8,14 @@ Official SDKs for integrating SwiftPay payment infrastructure into your applicat
 
 Browser and React SDK for accepting stablecoin payments via popup, iframe, or redirect flows.
 
-- **Package**: `@swiftpay/checkout-sdk`
+- **Package**: `@swiftpayfi/checkout-sdk`
 - **Platforms**: Browser, React, vanilla JavaScript
 - **Size**: ~11 KB minified (IIFE)
 - **Status**: ✅ Production-ready
 - **[Documentation](./checkout/README.md)**
 
 ```javascript
-import SwiftPayCheckout from '@swiftpay/checkout-sdk';
+import SwiftPayCheckout from '@swiftpayfi/checkout-sdk';
 
 const checkout = new SwiftPayCheckout({ key: 'pk_live_...' });
 const session = await checkout.createInvoice({ amount: 100, reference: 'order-123' });
@@ -26,13 +26,13 @@ await checkout.open();
 
 Backend SDK for Node.js/TypeScript applications. Create invoices, manage webhooks, and handle payments server-side.
 
-- **Package**: `@swiftpay/sdk`
+- **Package**: `@swiftpayfi/sdk`
 - **Platforms**: Node.js 18+, TypeScript
 - **Status**: ✅ Production-ready
 - **[Documentation](./nodejs/README.md)**
 
 ```javascript
-import { SwiftPay } from '@swiftpay/sdk';
+import { SwiftPay } from '@swiftpayfi/sdk';
 
 const client = new SwiftPay({ apiKey: 'sk_live_...' });
 const invoice = await client.invoices.create({
@@ -62,13 +62,58 @@ invoice = client.invoices.create(
 )
 ```
 
+### x402 Node Guard (`./x402-node-guard/`)
+
+Express and Fastify middleware that enforces [x402](https://www.x402.org/) payment-required responses, settling payments through the SwiftPay API before allowing access to protected routes.
+
+- **Package**: `@swiftpayfi/x402-node-guard`
+- **Platforms**: Node.js 18+, Express, Fastify
+- **Status**: ✅ Production-ready
+- **[Documentation](./x402-node-guard/README.md)**
+
+```typescript
+import { SwiftPay } from '@swiftpayfi/api-client';
+import { x402Express } from '@swiftpayfi/x402-node-guard/express';
+
+const client = new SwiftPay({ secretKey: process.env.SWIFTPAY_SECRET_KEY });
+const x402 = x402Express({ client });
+
+app.get('/v1/analyze', x402('https://api.example.com/v1/analyze'), (req, res) => {
+  res.json({ sentiment: 'positive', score: 0.87 });
+});
+```
+
+### x402 FastAPI Guard (`./x402-fastapi-guard/`)
+
+FastAPI middleware that enforces [x402](https://www.x402.org/) payment-required responses, settling payments through the SwiftPay API before allowing access to protected routes.
+
+- **Package**: `swiftpay-x402-fastapi-guard`
+- **Platforms**: Python 3.8+, FastAPI
+- **Status**: ✅ Production-ready
+- **[Documentation](./x402-fastapi-guard/README.md)**
+
+```python
+from fastapi import FastAPI
+from swiftpay import AsyncSwiftPay
+from swiftpay_x402_fastapi_guard import X402Guard
+
+client = AsyncSwiftPay(secret_key="sk_live_...")
+
+app = FastAPI()
+app.add_middleware(
+    X402Guard,
+    client=client,
+    routes={"/v1/analyze": "https://api.example.com/v1/analyze"},
+)
+```
+
 ## 🚀 Quick Start
 
 ### Installation
 
 ```bash
 # Checkout SDK (npm)
-npm install @swiftpay/checkout-sdk
+npm install @swiftpayfi/checkout-sdk
 
 # Or use from CDN
 <script src="https://cdn.swiftpay.finance/checkout@latest/index.iife.js"></script>
@@ -108,27 +153,29 @@ if (session) {
 | **Browser/Frontend Checkout** | [Checkout](./checkout/) | TypeScript/React |
 | **Backend Integration** | [Node.js](./nodejs/) | TypeScript/Node.js |
 | **Backend Integration** | [Python](./python/) | Python |
+| **x402 Paywall (Express/Fastify)** | [x402 Node Guard](./x402-node-guard/) | TypeScript/Node.js |
+| **x402 Paywall (FastAPI)** | [x402 FastAPI Guard](./x402-fastapi-guard/) | Python |
 
 ### SDK Comparison
 
-| Feature | Checkout | Node.js | Python |
-|---------|----------|---------|--------|
-| Invoice Creation | ❌ Backend API | ✅ | ✅ |
-| Payment Detection | ✅ Polling/SSE | ✅ Webhooks | ✅ Webhooks |
-| Checkout UI | ✅ | ❌ | ❌ |
-| Webhook Management | ❌ | ✅ | ✅ |
-| Type Safety | ✅ TypeScript | ✅ TypeScript | ✅ Type hints |
-| Size | 11 KB | ~100 KB | ~50 KB |
+| Feature | Checkout | Node.js | Python | x402 Node Guard | x402 FastAPI Guard |
+|---------|----------|---------|--------|-----------------|-------------------|
+| Invoice Creation | ❌ Backend API | ✅ | ✅ | ❌ | ❌ |
+| Payment Detection | ✅ Polling/SSE | ✅ Webhooks | ✅ Webhooks | ✅ Auto-settle | ✅ Auto-settle |
+| Checkout UI | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Webhook Management | ❌ | ✅ | ✅ | ❌ | ❌ |
+| x402 Paywall | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Type Safety | ✅ TypeScript | ✅ TypeScript | ✅ Type hints | ✅ TypeScript | ✅ Type hints |
 
 ## 🚀 Getting Started by Use Case
 
 ### Frontend Checkout
-1. Install: `npm install @swiftpay/checkout-sdk`
+1. Install: `npm install @swiftpayfi/checkout-sdk`
 2. Read: [Checkout SDK Docs](./checkout/README.md)
 3. Integrate: Use popup, iframe, or redirect mode
 
 ### Backend Server (Node.js)
-1. Install: `npm install @swiftpay/sdk`
+1. Install: `npm install @swiftpayfi/sdk`
 2. Read: [Node.js SDK Docs](./nodejs/README.md)
 3. Integrate: Create invoices, handle webhooks
 
@@ -136,6 +183,16 @@ if (session) {
 1. Install: `pip install swiftpay`
 2. Read: [Python SDK Docs](./python/README.md)
 3. Integrate: Create invoices, handle webhooks
+
+### x402 API Paywall (Node.js)
+1. Install: `npm install @swiftpayfi/x402-node-guard @swiftpayfi/api-client`
+2. Read: [x402 Node Guard Docs](./x402-node-guard/README.md)
+3. Integrate: Add middleware to Express or Fastify routes
+
+### x402 API Paywall (Python)
+1. Install: `pip install swiftpay-x402-fastapi-guard`
+2. Read: [x402 FastAPI Guard Docs](./x402-fastapi-guard/README.md)
+3. Integrate: Add middleware to FastAPI routes
 
 ## 📂 Repository Structure
 
@@ -164,6 +221,18 @@ sdk/
 │   ├── pyproject.toml
 │   ├── README.md                  # Complete documentation
 │   └── .python-version
+│
+├── x402-node-guard/               # x402 payment middleware (Express/Fastify)
+│   ├── src/
+│   ├── test/
+│   ├── package.json
+│   └── README.md                  # Complete documentation
+│
+├── x402-fastapi-guard/            # x402 payment middleware (FastAPI)
+│   ├── src/
+│   ├── tests/
+│   ├── pyproject.toml
+│   └── README.md                  # Complete documentation
 │
 ├── .github/workflows/
 │   ├── checkout-ci.yml            # Checkout SDK CI
@@ -250,13 +319,13 @@ npm run build:iife     # Standalone browser script
 
 ```bash
 # Latest production version
-npm install @swiftpay/checkout-sdk
+npm install @swiftpayfi/checkout-sdk
 
 # Specific version
-npm install @swiftpay/checkout-sdk@1.0.0
+npm install @swiftpayfi/checkout-sdk@1.0.0
 
 # Latest beta (pre-release)
-npm install @swiftpay/checkout-sdk@beta
+npm install @swiftpayfi/checkout-sdk@beta
 
 # Browser CDN (production)
 <script src="https://cdn.swiftpay.finance/checkout@latest/index.iife.js"></script>
@@ -328,6 +397,10 @@ The SDK automatically selects the correct endpoint based on the `sandbox` option
 ## 📖 Documentation
 
 - **[Checkout SDK Docs](./checkout/README.md)** — Complete API reference, examples, patterns
+- **[Node.js SDK Docs](./nodejs/README.md)** — Backend API client reference
+- **[Python SDK Docs](./python/README.md)** — Backend API client reference
+- **[x402 Node Guard Docs](./x402-node-guard/README.md)** — Express/Fastify payment middleware
+- **[x402 FastAPI Guard Docs](./x402-fastapi-guard/README.md)** — FastAPI payment middleware
 - **[Changesets Guide](./.changeset/README.md)** — How to version and release changes
 - **[Product Spec](../docs/mvp-product-document.md)** — High-level product requirements
 

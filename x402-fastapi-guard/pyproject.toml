@@ -1,0 +1,92 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "swiftpay-x402-fastapi-guard"
+version = "0.1.0"
+description = "x402 payment middleware for FastAPI — powered by the SwiftPay API"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+keywords = ["swiftpay", "x402", "http-402", "fastapi", "payment", "middleware", "usdc", "stablecoin"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries",
+]
+dependencies = [
+    "swiftpay-api-client>=0.1.0",
+    "fastapi>=0.100",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "respx>=0.22",
+    "build>=1.2",
+    "pydantic>=2.0",
+]
+
+[project.urls]
+Homepage = "https://docs.swiftpay.finance"
+Documentation = "https://docs.swiftpay.finance/x402"
+Repository = "https://github.com/swiftpayfi/sdk"
+Issues = "https://github.com/swiftpayfi/sdk/issues"
+Changelog = "https://github.com/swiftpayfi/sdk/blob/main/sdk/x402-fastapi-guard/CHANGELOG.md"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/swiftpay_x402_fastapi_guard"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "TID", "PT", "RUF"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["swiftpay_x402_fastapi_guard"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unreachable = true
+plugins = ["pydantic.mypy"]
+mypy_path = "src"
+explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+module = "respx.*"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+
+[tool.coverage.run]
+source = ["src/swiftpay_x402_fastapi_guard"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 90
