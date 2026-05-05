@@ -43,6 +43,9 @@
     "version": "changeset version",
     "release": "npm run build && changeset publish"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "peerDependencies": {
     "@swiftpayfi/api-client": ">=0.1.0",
     "express": ">=4.0.0",
