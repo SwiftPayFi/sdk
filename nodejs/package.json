@@ -1,5 +1,5 @@
 {
-  "name": "@swiftpay/api-client",
+  "name": "@swiftpayfi/api-client",
   "version": "0.1.0",
   "description": "Server-side TypeScript SDK for the SwiftPay REST API",
   "type": "module",
@@ -30,12 +30,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/swiftpay/swiftpay.finance.git",
-    "directory": "sdk/nodejs"
+    "url": "git+https://github.com/swiftpayfi/sdk.git",
+    "directory": "nodejs"
   },
   "homepage": "https://docs.swiftpay.finance",
-  "bugs": "https://github.com/swiftpay/swiftpay.finance/issues",
-  "license": "MIT",
+  "bugs": "https://github.com/swiftpayfi/sdk/issues",
+  "license": "Apache-2.0",
   "keywords": [
     "swiftpay",
     "stablecoin",

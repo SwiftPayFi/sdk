@@ -1,4 +1,4 @@
-# @swiftpay/api-client
+# @swiftpayfi/api-client
 
 Server-side TypeScript SDK for the [SwiftPay](https://swiftpay.finance) REST API. Mirrors the published [Documentation](https://docs.swiftpay.finance) — zero hidden behaviour.
 
@@ -10,13 +10,13 @@ Server-side TypeScript SDK for the [SwiftPay](https://swiftpay.finance) REST API
 ## Install
 
 ```bash
-npm install @swiftpay/api-client
+npm install @swiftpayfi/api-client
 ```
 
 ## Quick start
 
 ```ts
-import { SwiftPay } from '@swiftpay/api-client';
+import { SwiftPay } from '@swiftpayfi/api-client';
 
 const client = new SwiftPay({
   secretKey: process.env.SWIFTPAY_SECRET_KEY, // optional — required only for secret-scoped modules
@@ -96,7 +96,7 @@ import {
   SwiftPayNotFoundError,
   SwiftPayConfigError,
   SwiftPayServerError,
-} from '@swiftpay/api-client';
+} from '@swiftpayfi/api-client';
 
 try {
   await client.invoices.create({ amount: '', token: 'USDC', network: 'ethereum' });
@@ -115,17 +115,17 @@ try {
 
 ## Versioning
 
-This SDK is pinned to one major version of the SwiftPay REST API. Each `@swiftpay/api-client` major maps 1:1 to a SwiftPay API major:
+This SDK is pinned to one major version of the SwiftPay REST API. Each `@swiftpayfi/api-client` major maps 1:1 to a SwiftPay API major:
 
 | SDK            | API path prefix |
 | -------------- | --------------- |
 | `0.x` / `1.x`  | `/v1/...`       |
 
-When SwiftPay ships `/v2`, we'll release `@swiftpay/api-client@2.0.0` with regenerated types. Pin the SDK in your `package.json` the same way you'd pin any breaking-change-prone library:
+When SwiftPay ships `/v2`, we'll release `@swiftpayfi/api-client@2.0.0` with regenerated types. Pin the SDK in your `package.json` the same way you'd pin any breaking-change-prone library:
 
 ```jsonc
 "dependencies": {
-  "@swiftpay/api-client": "^1.0.0"
+  "@swiftpayfi/api-client": "^1.0.0"
 }
 ```
 

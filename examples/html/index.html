@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SwiftPay Checkout - HTML Example</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: #fff;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, #00d4ff, #7c3aed);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      color: #aaa;
+      font-size: 1.1rem;
+    }
+
+    .products-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 2rem;
+      margin-bottom: 3rem;
+    }
+
+    .product-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 2rem;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+    }
+
+    .product-card:hover {
+      border-color: rgba(124, 58, 237, 0.5);
+      background: rgba(124, 58, 237, 0.05);
+      transform: translateY(-4px);
+    }
+
+    .product-image {
+      width: 100%;
+      height: 200px;
+      background: linear-gradient(135deg, #7c3aed, #00d4ff);
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+    }
+
+    .product-name {
+      font-size: 1.3rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .product-desc {
+      color: #bbb;
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+    }
+
+    .product-price {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .price-amount {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #00d4ff;
+    }
+
+    .price-currency {
+      color: #777;
+      font-size: 0.9rem;
+    }
+
+    button {
+      width: 100%;
+      padding: 0.875rem;
+      background: linear-gradient(135deg, #7c3aed, #00d4ff);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(124, 58, 237, 0.4);
+    }
+
+    button:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .checkout-modes {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      backdrop-filter: blur(10px);
+    }
+
+    .checkout-modes h2 {
+      margin-bottom: 1rem;
+      color: #00d4ff;
+    }
+
+    .mode-buttons {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .mode-btn {
+      flex: 1;
+      min-width: 120px;
+      padding: 0.75rem 1rem;
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+
+    .mode-btn.active {
+      background: linear-gradient(135deg, #7c3aed, #00d4ff);
+      border-color: transparent;
+    }
+
+    .mode-btn:hover {
+      border-color: rgba(124, 58, 237, 0.5);
+      background: rgba(124, 58, 237, 0.1);
+    }
+
+    .status-display {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      backdrop-filter: blur(10px);
+    }
+
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .status-item:last-child {
+      border-bottom: none;
+    }
+
+    .status-label {
+      color: #aaa;
+    }
+
+    .status-value {
+      color: #00d4ff;
+      font-weight: 600;
+    }
+
+    .error-message {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+
+    .success-message {
+      background: rgba(34, 197, 94, 0.1);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      color: #86efac;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+
+    .divider {
+      height: 1px;
+      background: rgba(255, 255, 255, 0.1);
+      margin: 2rem 0;
+    }
+
+    @media (max-width: 768px) {
+      h1 {
+        font-size: 1.8rem;
+      }
+
+      .products-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .mode-buttons {
+        flex-direction: column;
+      }
+
+      .mode-btn {
+        min-width: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>SwiftPay Checkout</h1>
+      <p class="subtitle">HTML Vanilla JavaScript Example</p>
+    </header>
+
+    <div class="checkout-modes">
+      <h2>Checkout Mode</h2>
+      <div class="mode-buttons">
+        <button class="mode-btn active" data-mode="popup">Popup</button>
+        <button class="mode-btn" data-mode="iframe">Iframe</button>
+        <button class="mode-btn" data-mode="redirect">Redirect</button>
+      </div>
+    </div>
+
+    <div id="messages"></div>
+
+    <div class="status-display">
+      <div class="status-item">
+        <span class="status-label">Current Mode:</span>
+        <span class="status-value" id="currentMode">popup</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Session Status:</span>
+        <span class="status-value" id="sessionStatus">–</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Invoice Status:</span>
+        <span class="status-value" id="invoiceStatus">–</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Amount Paid:</span>
+        <span class="status-value" id="amountPaid">–</span>
+      </div>
+    </div>
+
+    <!-- Iframe container for iframe mode -->
+    <div id="checkout-container" style="display: none; margin-bottom: 2rem;"></div>
+
+    <div class="divider"></div>
+
+    <div>
+      <h2 style="margin-bottom: 2rem;">Products</h2>
+      <div class="products-grid">
+        <div class="product-card">
+          <div class="product-image">🎵</div>
+          <div class="product-name">Premium Song</div>
+          <div class="product-desc">High-quality audio download</div>
+          <div class="product-price">
+            <span class="price-amount">9.99</span>
+            <span class="price-currency">USD</span>
+          </div>
+          <button class="buy-btn" data-product-id="song-01" data-product-name="Premium Song" data-product-price="9.99">
+            Buy Now
+          </button>
+        </div>
+
+        <div class="product-card">
+          <div class="product-image">📱</div>
+          <div class="product-name">Premium App</div>
+          <div class="product-desc">Lifetime license & updates</div>
+          <div class="product-price">
+            <span class="price-amount">49.99</span>
+            <span class="price-currency">USD</span>
+          </div>
+          <button class="buy-btn" data-product-id="app-01" data-product-name="Premium App" data-product-price="49.99">
+            Buy Now
+          </button>
+        </div>
+
+        <div class="product-card">
+          <div class="product-image">🎮</div>
+          <div class="product-name">Game DLC Pack</div>
+          <div class="product-desc">3 expansions + cosmetics</div>
+          <div class="product-price">
+            <span class="price-amount">24.99</span>
+            <span class="price-currency">USD</span>
+          </div>
+          <button class="buy-btn" data-product-id="dlc-01" data-product-name="Game DLC Pack" data-product-price="24.99">
+            Buy Now
+          </button>
+        </div>
+
+        <div class="product-card">
+          <div class="product-image">🎓</div>
+          <div class="product-name">Online Course</div>
+          <div class="product-desc">12-week certification program</div>
+          <div class="product-price">
+            <span class="price-amount">199.99</span>
+            <span class="price-currency">USD</span>
+          </div>
+          <button class="buy-btn" data-product-id="course-01" data-product-name="Online Course" data-product-price="199.99">
+            Buy Now
+          </button>
+        </div>
+
+        <div class="product-card">
+          <div class="product-image">🖼️</div>
+          <div class="product-name">Digital Art NFT</div>
+          <div class="product-desc">Limited edition 1/100</div>
+          <div class="product-price">
+            <span class="price-amount">99.99</span>
+            <span class="price-currency">USD</span>
+          </div>
+          <button class="buy-btn" data-product-id="nft-01" data-product-name="Digital Art NFT" data-product-price="99.99">
+            Buy Now
+          </button>
+        </div>
+
+        <div class="product-card">
+          <div class="product-image">☕</div>
+          <div class="product-name">Coffee Subscription</div>
+          <div class="product-desc">Monthly specialty beans</div>
+          <div class="product-price">
+            <span class="price-amount">19.99</span>
+            <span class="price-currency">USD/mo</span>
+          </div>
+          <button class="buy-btn" data-product-id="coffee-01" data-product-name="Coffee Subscription" data-product-price="19.99">
+            Subscribe
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Load SwiftPay Checkout SDK (local IIFE version) -->
+  <script src="../../checkout/dist/index.iife.js"></script>
+
+  <script>
+    // Initialize checkout instance
+    let checkout = null;
+    let currentMode = 'popup';
+
+    function initializeCheckout() {
+      // Replace with your actual publishable key from SwiftPay dashboard
+      const publishableKey = 'pk_test_G2ok56N9gFFbia3jSQ8hjJZpAvv9m68iAgg2CTeWw2AT';
+
+      // Check if SDK is loaded
+      if (typeof SwiftPayCheckout === 'undefined') {
+        showMessage(
+          'SDK not loaded. Make sure to build the SDK first: cd ../checkout && npm run build',
+          'error'
+        );
+        return;
+      }
+
+      if (!publishableKey.startsWith('pk_')) {
+        showMessage(
+          'Please set your publishable key in the script. Get one from https://dashboard.swiftpay.finance',
+          'error'
+        );
+        return;
+      }
+
+      checkout = new SwiftPayCheckout({
+        key: publishableKey,
+        token: 'USDC', // Default token
+        chains: ["sepolia", "base-sepolia"],
+        mode: currentMode,
+        sandbox: true, // Use sandbox for testing
+        autoClose: true,
+        pollIntervalMs: 4000,
+      });
+
+      setupCheckoutListeners();
+    }
+
+    function setupCheckoutListeners() {
+      // Ready event
+      checkout.on('ready', ({ session }) => {
+        console.log('✅ Session ready:', session);
+        updateStatus('sessionStatus', 'ready');
+      });
+
+      // Open event
+      checkout.on('open', ({ mode, checkoutUrl, session }) => {
+        console.log('🔓 Checkout opened in mode:', mode);
+        updateStatus('sessionStatus', `opened (${mode})`);
+      });
+
+      // Close event
+      checkout.on('close', ({ reason, session }) => {
+        console.log('❌ Checkout closed:', reason);
+        updateStatus('sessionStatus', `closed (${reason})`);
+      });
+
+      // Status change
+      checkout.on('status', ({ status, previousStatus, invoice, session }) => {
+        console.log(`📊 Status changed: ${previousStatus} → ${status}`);
+        updateStatus('invoiceStatus', status);
+      });
+
+      // Payment pending
+      checkout.on('payment.pending', ({ invoice, session }) => {
+        console.log('⏳ Payment pending:', invoice.reference);
+        updateStatus('invoiceStatus', 'pending');
+        showMessage(`Payment pending for ${invoice.reference}`, 'info');
+      });
+
+      // Partial payment
+      checkout.on('payment.partial', ({ invoice, session }) => {
+        console.log('📦 Partial payment:', invoice.pendingAmount);
+        updateStatus('invoiceStatus', 'partial');
+        updateStatus('amountPaid', `${invoice.pendingAmount} / ${invoice.amountExpected} USD`);
+      });
+
+      // Full payment
+      checkout.on('payment.paid', ({ invoice, session }) => {
+        console.log('💰 Full payment received:', invoice.reference);
+        updateStatus('invoiceStatus', 'paid');
+      });
+
+      // Payment completed
+      checkout.on('payment.completed', ({ invoice, session }) => {
+        console.log('✨ Payment completed:', invoice);
+        updateStatus('invoiceStatus', 'completed');
+        updateStatus('amountPaid', `${invoice.amountExpected} USD`);
+        showMessage(
+          `✅ Payment completed! Reference: ${invoice.reference}. You can now fulfill the order.`,
+          'success'
+        );
+      });
+
+      // Error
+      checkout.on('error', ({ error }) => {
+        console.error('❌ Checkout error:', error);
+        showMessage(`Error: ${error.message}`, 'error');
+      });
+
+      // Redirect (redirect mode only)
+      checkout.on('redirect', ({ url, session }) => {
+        console.log('🔀 Redirecting to:', url);
+        showMessage('Redirecting to checkout...', 'info');
+      });
+
+      // Expired
+      checkout.on('expired', ({ sessionToken, session }) => {
+        console.warn('⏰ Session expired');
+        showMessage('Session expired. Please try again.', 'error');
+      });
+    }
+
+    // Mode switching
+    document.querySelectorAll('.mode-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const newMode = e.target.dataset.mode;
+        currentMode = newMode;
+
+        // Update active button
+        document.querySelectorAll('.mode-btn').forEach((b) => b.classList.remove('active'));
+        e.target.classList.add('active');
+
+        // Update display
+        updateStatus('currentMode', newMode);
+
+        // Reinitialize checkout with new mode
+        if (checkout) {
+          checkout.destroy();
+        }
+        initializeCheckout();
+
+        // Show/hide iframe container
+        const container = document.getElementById('checkout-container');
+        if (newMode === 'iframe') {
+          container.style.display = 'block';
+        } else {
+          container.style.display = 'none';
+        }
+      });
+    });
+
+    // Buy button handlers
+    document.querySelectorAll('.buy-btn').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        if (!checkout) {
+          showMessage('Checkout not initialized. Please check your publishable key.', 'error');
+          return;
+        }
+
+        const productId = btn.dataset.productId;
+        const productName = btn.dataset.productName;
+        const price = parseFloat(btn.dataset.productPrice);
+
+        btn.disabled = true;
+        btn.textContent = 'Creating invoice...';
+
+        try {
+          // Create invoice
+          const session = await checkout.createInvoice({
+            amount: price,
+            reference: `order-${Date.now()}`,
+            metadata: {
+              productId,
+              productName,
+              userId: 'user-123', // Replace with actual user ID
+            },
+          });
+
+          if (!session) {
+            throw new Error('Failed to create invoice');
+          }
+
+          showMessage(`Invoice created for ${productName}`, 'success');
+
+          // Open checkout UI
+          const openSession = await checkout.open();
+          if (!openSession) {
+            throw new Error('Failed to open checkout');
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          showMessage(`Error: ${error.message}`, 'error');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = `Buy Now`;
+        }
+      });
+    });
+
+    function updateStatus(elementId, value) {
+      const element = document.getElementById(elementId);
+      if (element) {
+        element.textContent = value;
+      }
+    }
+
+    function showMessage(text, type = 'info') {
+      const messagesDiv = document.getElementById('messages');
+      const messageEl = document.createElement('div');
+      messageEl.className = `${type}-message`;
+      messageEl.textContent = text;
+
+      messagesDiv.appendChild(messageEl);
+
+      // Auto-remove after 6 seconds
+      setTimeout(() => {
+        messageEl.style.opacity = '0';
+        messageEl.style.transition = 'opacity 0.3s';
+        setTimeout(() => messageEl.remove(), 300);
+      }, 6000);
+    }
+
+    // Initialize on page load
+    window.addEventListener('load', () => {
+      initializeCheckout();
+    });
+  </script>
+</body>
+</html>

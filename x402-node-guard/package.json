@@ -1,0 +1,97 @@
+{
+  "name": "@swiftpayfi/x402-node-guard",
+  "version": "0.1.0",
+  "description": "x402 payment middleware for Express and Fastify — powered by the SwiftPay API",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./express": {
+      "types": "./dist/express.d.ts",
+      "import": "./dist/express.js",
+      "default": "./dist/express.js"
+    },
+    "./fastify": {
+      "types": "./dist/fastify.d.ts",
+      "import": "./dist/fastify.js",
+      "default": "./dist/fastify.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p .",
+    "clean": "rimraf dist",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "npm run build && changeset publish"
+  },
+  "peerDependencies": {
+    "@swiftpayfi/api-client": ">=0.1.0",
+    "express": ">=4.0.0",
+    "fastify": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "express": {
+      "optional": true
+    },
+    "fastify": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@changesets/changelog-github": "^0.6.0",
+    "@changesets/cli": "^2.31.0",
+    "@swiftpayfi/api-client": "file:../nodejs",
+    "@types/express": "^5.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "@vitest/coverage-v8": "^3.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^10.0.0",
+    "eslint-plugin-import": "^2.31.0",
+    "express": "^5.0.0",
+    "fastify": "^5.0.0",
+    "prettier": "^3.4.0",
+    "rimraf": "^6.0.0",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.59.2",
+    "vitest": "^3.0.0"
+  },
+  "keywords": [
+    "swiftpay",
+    "x402",
+    "http-402",
+    "payment",
+    "middleware",
+    "express",
+    "fastify",
+    "usdc",
+    "stablecoin"
+  ],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/swiftpayfi/sdk.git",
+    "directory": "x402-node-guard"
+  },
+  "bugs": "https://github.com/swiftpayfi/sdk/issues",
+  "homepage": "https://docs.swiftpay.finance/x402"
+}

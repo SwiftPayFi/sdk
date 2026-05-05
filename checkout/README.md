@@ -17,7 +17,7 @@ Browser and React SDK for accepting stablecoin payments. Supports popup, iframe,
 ### NPM Package
 
 ```bash
-npm install @swiftpay/checkout-sdk
+npm install @swiftpayfi/checkout-sdk
 ```
 
 ### Direct Script Tag (Browser)
@@ -31,7 +31,7 @@ npm install @swiftpay/checkout-sdk
 ### Vanilla JavaScript
 
 ```javascript
-import SwiftPayCheckout from '@swiftpay/checkout-sdk';
+import SwiftPayCheckout from '@swiftpayfi/checkout-sdk';
 
 // 1. Initialize once per page
 const checkout = new SwiftPayCheckout({
@@ -66,7 +66,7 @@ async function buyProduct(productId, price) {
 ### React Hook
 
 ```typescript
-import { useSwiftPayCheckout } from '@swiftpay/checkout-sdk/react';
+import { useSwiftPayCheckout } from '@swiftpayfi/checkout-sdk/react';
 
 function CheckoutButton({ product }) {
   const {

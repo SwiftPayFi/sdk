@@ -1,5 +1,5 @@
 {
-  "name": "@swiftpay/checkout-sdk",
+  "name": "@swiftpayfi/checkout-sdk",
   "version": "0.1.0",
   "description": "SwiftPay browser + React checkout SDK",
   "type": "module",
@@ -18,10 +18,8 @@
     }
   },
   "scripts": {
-    "build": "npm run build:types && npm run build:esm && npm run build:iife",
+    "build": "npm run build:types && tsup",
     "build:types": "tsc -p . --emitDeclarationOnly --outDir dist",
-    "build:esm": "esbuild src/index.ts src/react.ts --bundle --minify --format=esm --outdir=dist --packages=external",
-    "build:iife": "esbuild src/index.ts --bundle --minify --format=iife --global-name=SwiftPayCheckout --outfile=dist/index.iife.js --packages=external",
     "dev": "tsc -p . --watch",
     "version": "changeset version",
     "release": "npm run build && npm publish"
@@ -34,6 +32,7 @@
     "@changesets/cli": "^2.31.0",
     "@types/react": "^19.2.14",
     "esbuild": "^0.21.5",
+    "tsup": "^8.5.1",
     "typescript": "^5.9.3"
   }
 }

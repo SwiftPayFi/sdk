@@ -11,7 +11,7 @@ npx changeset add
 ```
 
 This will prompt you to:
-1. Select which packages changed (choose `@swiftpay/checkout-sdk`)
+1. Select which packages changed (choose `@swiftpayfi/checkout-sdk`)
 2. Select the bump type:
    - `patch` — Bug fixes, internal improvements (0.1.0 → 0.1.1)
    - `minor` — New features, backwards compatible (0.1.0 → 0.2.0)
@@ -26,14 +26,14 @@ A `.md` file will be created automatically in this directory.
 When the "Version Packages" PR is merged:
 1. Changelog is generated
 2. Version bumped in `package.json`
-3. Published to npm as `@swiftpay/checkout-sdk@X.Y.Z` (latest)
+3. Published to npm as `@swiftpayfi/checkout-sdk@X.Y.Z` (latest)
 4. IIFE uploaded to S3 as `checkout@X.Y.Z/` and `checkout@latest/`
 
 ### On `dev` branch (Beta Release)
 When changes are pushed with changesets:
 1. Changelog is generated with beta tag
 2. Version bumped with beta suffix
-3. Published to npm as `@swiftpay/checkout-sdk@X.Y.Z-beta.N`
+3. Published to npm as `@swiftpayfi/checkout-sdk@X.Y.Z-beta.N`
 4. IIFE uploaded to S3 as `checkout@X.Y.Z-beta.N/` and `checkout@beta/`
 
 ## Workflow

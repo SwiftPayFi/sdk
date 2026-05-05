@@ -1,0 +1,59 @@
+name: sdk/x402-node-guard · release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'x402-node-guard/**'
+      - '.github/workflows/x402-node-guard-release.yml'
+
+concurrency:
+  group: sdk-x402-node-guard-release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  release:
+    name: version or publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: x402-node-guard/package-lock.json
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Build api-client (peer dependency)
+        working-directory: nodejs
+        run: npm ci && npm run build
+
+      - name: Install
+        working-directory: x402-node-guard
+        run: npm ci
+
+      - name: Build
+        working-directory: x402-node-guard
+        run: npm run build
+
+      - name: Create version PR or publish
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          cwd: x402-node-guard
+          version: npm run version
+          publish: npm run release
+          commit: 'chore(sdk/x402-node-guard): release'
+          title: 'chore(sdk/x402-node-guard): release'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'

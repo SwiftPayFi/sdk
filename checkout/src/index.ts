@@ -112,6 +112,7 @@ export interface SwiftPayCheckoutOptions {
   sandbox?: boolean;
   callbackUrl?: string;
   autoClose?: boolean;
+  /** @deprecated No longer used — the hosted checkout app now owns real-time state polling. */
   pollIntervalMs?: number;
 
   /** Popup options */
@@ -203,12 +204,17 @@ type CheckoutAPIResponse<T> = {
   data: T;
 };
 
-const DEFAULT_POLL_INTERVAL_MS = 4_000;
 const DEFAULT_POPUP_WIDTH = 520;
 const DEFAULT_POPUP_HEIGHT = 740;
+const CHECKOUT_EVENT_SOURCE = 'swiftpay-checkout';
+const HEARTBEAT_CHECK_INTERVAL_MS = 15_000;
+const HEARTBEAT_TIMEOUT_MS = 30_000;
+// const SANDBOX_API_BASE_URL = 'https://sandbox-api.swiftpay.finance';
+const SANDBOX_API_BASE_URL = 'http://localhost:8888';
+const PRODUCTION_API_BASE_URL = 'https://api.swiftpay.finance';
 
 const getApiBaseUrl = (sandbox: boolean): string => {
-  return sandbox ? 'https://sandbox-api.swiftpay.finance' : 'https://api.swiftpay.finance';
+  return sandbox ? SANDBOX_API_BASE_URL : PRODUCTION_API_BASE_URL;
 };
 
 const eventNameForStatus: Record<Exclude<InvoiceStatus, 'completed'>, CheckoutEvent> = {
@@ -304,30 +310,29 @@ export class SwiftPayCheckout {
   private readonly options: Required<
     Pick<
       SwiftPayCheckoutOptions,
-      'mode' | 'autoClose' | 'pollIntervalMs' | 'key'
+      'mode' | 'autoClose' | 'key'
     >
   > &
-    Omit<SwiftPayCheckoutOptions, 'mode' | 'autoClose' | 'pollIntervalMs' | 'key'>;
+    Omit<SwiftPayCheckoutOptions, 'mode' | 'autoClose' | 'key'>;
   private readonly apiBaseUrl: string;
   private session: CheckoutSessionResponse | null = null;
   private currentStatus: InvoiceStatus | null = null;
   private completed = false;
-  private pollTimer: number | null = null;
   private popupPollTimer: number | null = null;
+  private heartbeatTimer: number | null = null;
+  private lastMessageTimestamp: number = 0;
   private isProcessing = false;
   private isOpen = false;
   private destroyed = false;
   private iframeElement: HTMLIFrameElement | null = null;
   private iframeContainer: HTMLDivElement | null = null;
   private popupWindow: Window | null = null;
-  private eventSource: SessionEventSubscription | null = null;
   private postMessageHandler: ((event: MessageEvent) => void) | null = null;
   private listeners = new Map<CheckoutEvent, Set<(payload: unknown) => void>>();
 
   constructor(options: SwiftPayCheckoutOptions) {
     this.options = {
       autoClose: true,
-      pollIntervalMs: DEFAULT_POLL_INTERVAL_MS,
       mode: 'popup',
       ...options,
     } as typeof this.options;
@@ -440,7 +445,7 @@ export class SwiftPayCheckout {
     }
 
     try {
-      const session = await this.request<CheckoutSessionResponse>('/checkout/sessions', {
+      const session = await this.request<CheckoutSessionResponse>('/v1/checkout/sessions', {
         method: 'POST',
         body: JSON.stringify(body),
       });
@@ -504,7 +509,7 @@ export class SwiftPayCheckout {
 
       this.emit('open', { mode, checkoutUrl, session });
       this.options.onOpen?.({ mode, checkoutUrl, session });
-      this.startPolling(session.sessionToken);
+      this.startListening();
 
       return session;
     } catch (error) {
@@ -562,10 +567,6 @@ export class SwiftPayCheckout {
     if (options.mode !== 'iframe' && options.iframe) {
       throw new CheckoutSDKError('Iframe options are only valid in iframe mode', 'invalid_options');
     }
-
-    if (options.pollIntervalMs && (options.pollIntervalMs <= 0 || options.pollIntervalMs > 60_000)) {
-      throw new CheckoutSDKError('pollIntervalMs must be between 1 and 60000', 'invalid_options');
-    }
   }
 
   private emit<EventName extends CheckoutEvent>(
@@ -599,12 +600,6 @@ export class SwiftPayCheckout {
     return normalized;
   }
 
-  private async fetchSession(sessionToken: string): Promise<CheckoutSessionResponse> {
-    return this.request<CheckoutSessionResponse>(`/checkout/sessions/${sessionToken}`, {
-      method: 'GET',
-    });
-  }
-
   private async request<T>(path: string, init: RequestInit): Promise<T> {
     const response = await fetch(`${this.apiBaseUrl}${path}`, {
       ...init,
@@ -634,16 +629,6 @@ export class SwiftPayCheckout {
   }
 
   private buildCheckoutURL(checkoutUrl: string): string {
-    if (!this.options.callbackUrl) {
-      return checkoutUrl;
-    }
-
-    if (this.options.mode === 'redirect') {
-      const next = new URL(checkoutUrl);
-      next.searchParams.set('callback', this.options.callbackUrl);
-      return next.toString();
-    }
-
     return checkoutUrl;
   }
 
@@ -651,7 +636,7 @@ export class SwiftPayCheckout {
     const left = Math.max(0, Math.floor((window.screen.width - width) / 2));
     const top = Math.max(0, Math.floor((window.screen.height - height) / 2));
 
-    return `width=${width},height=${height},top=${top},left=${left},toolbar=0,menubar=0,location=0,status=0,scrollbars=1,resizable=1`;
+    return `width=${width},height=${height},top=${top},left=${left},popup=1,dependent=1,toolbar=no,menubar=no,location=no,status=no,scrollbars=yes,resizable=yes`;
   }
 
   private openPopup(checkoutUrl: string): void {
@@ -754,34 +739,11 @@ export class SwiftPayCheckout {
     return container;
   }
 
-  private startPolling(sessionToken: string): void {
-    // Prefer SSE when available; fall back to polling.
-    if (typeof EventSource !== 'undefined') {
-      try {
-        this.eventSource = subscribeSessionEvents(sessionToken, {
-          apiBaseUrl: this.apiBaseUrl,
-          onEvent: () => {
-            // On any lifecycle event, refresh authoritative session state.
-            void this.syncSession(sessionToken);
-          },
-          onError: () => {
-            // EventSource auto-reconnects; if it closes permanently we'll
-            // still see updates from the on-status poll below.
-          },
-        });
-      } catch {
-        this.eventSource = null;
-      }
-    }
-
-    this.pollTimer = window.setInterval(() => {
-      void this.syncSession(sessionToken);
-    }, this.options.pollIntervalMs);
-
-    void this.syncSession(sessionToken);
+  private startListening(): void {
+    this.attachPostMessageListener();
 
     if (this.options.mode === 'iframe') {
-      this.attachPostMessageListener();
+      this.startHeartbeatCheck();
     }
   }
 
@@ -801,28 +763,105 @@ export class SwiftPayCheckout {
       }
     })();
 
+    this.lastMessageTimestamp = Date.now();
+
     const handler = (event: MessageEvent): void => {
-      // Accept messages only from the hosted-checkout origin.
       if (expectedOrigin && event.origin !== expectedOrigin) {
         return;
       }
       const payload = event.data as
-        | { type?: string; token?: string; data?: unknown }
+        | { source?: string; type?: string; token?: string; data?: Record<string, unknown> }
         | null
         | undefined;
       if (!payload || typeof payload !== 'object') {
         return;
       }
-      // Token-bound: drop messages that don't carry our session's token.
+      if (payload.source !== CHECKOUT_EVENT_SOURCE) {
+        return;
+      }
       if (payload.token !== expectedToken) {
         return;
       }
       if (typeof payload.type !== 'string') {
         return;
       }
-      // Trigger a server fetch — never trust postMessage data as authoritative.
-      if (this.session) {
-        void this.syncSession(this.session.sessionToken);
+
+      this.lastMessageTimestamp = Date.now();
+
+      if (!this.isOpen || this.completed || this.destroyed || !this.session) {
+        return;
+      }
+
+      const data = payload.data ?? {};
+
+      switch (payload.type) {
+        case 'ready': {
+          const session = (data as { session?: CheckoutSessionResponse }).session;
+          if (session) {
+            this.session = session;
+            this.currentStatus = session.invoice.status;
+          }
+          break;
+        }
+        case 'status': {
+          const statusData = data as {
+            session?: CheckoutSessionResponse;
+            status?: InvoiceStatus;
+            previousStatus?: InvoiceStatus;
+          };
+          if (statusData.session && statusData.status) {
+            this.handleStatusUpdate(statusData.session, statusData.status, statusData.previousStatus);
+          }
+          break;
+        }
+        case 'payment.pending':
+        case 'payment.partial':
+        case 'payment.paid': {
+          const paymentData = data as {
+            invoice?: CheckoutInvoice;
+            session?: CheckoutSessionResponse;
+          };
+          if (paymentData.session) {
+            this.handleStatusUpdate(
+              paymentData.session,
+              paymentData.session.invoice.status,
+              this.currentStatus ?? undefined
+            );
+          }
+          break;
+        }
+        case 'payment.completed': {
+          const completedData = data as {
+            invoice?: CheckoutInvoice;
+            session?: CheckoutSessionResponse;
+          };
+          if (completedData.session) {
+            this.handleStatusUpdate(completedData.session, 'completed', this.currentStatus ?? undefined);
+          }
+          break;
+        }
+        case 'error': {
+          const errorData = data as { error?: { message?: string; code?: string } };
+          this.emitError(
+            new CheckoutSDKError(errorData.error?.message ?? 'Checkout error', errorData.error?.code)
+          );
+          break;
+        }
+        case 'close': {
+          const closeData = data as { reason?: CheckoutCloseReason };
+          this.close(closeData.reason ?? 'manual');
+          break;
+        }
+        case 'cancel': {
+          const cancelData = data as { reason?: CheckoutCloseReason };
+          const cancelPayload: CheckoutClosePayload = {
+            reason: cancelData.reason ?? 'manual',
+            session: this.session,
+          };
+          this.emit('cancel', cancelPayload);
+          this.options.onCancel?.(cancelPayload);
+          break;
+        }
       }
     };
 
@@ -837,66 +876,77 @@ export class SwiftPayCheckout {
     this.postMessageHandler = null;
   }
 
-  private async syncSession(sessionToken: string): Promise<void> {
-    if (!this.isOpen || this.completed || this.destroyed || !this.session) {
+  private handleStatusUpdate(
+    session: CheckoutSessionResponse,
+    status: InvoiceStatus,
+    previousStatus?: InvoiceStatus
+  ): void {
+    if (this.isExpired(session)) {
+      const expiredPayload: CheckoutExpiredPayload = {
+        sessionToken: session.sessionToken,
+        session,
+      };
+      this.emit('expired', expiredPayload);
+      this.emitError(new CheckoutSDKError('Checkout session has expired', 'session_expired'));
+      this.close('expired');
       return;
     }
 
-    try {
-      const session = await this.fetchSession(sessionToken);
+    const previous = previousStatus ?? this.currentStatus;
 
-      if (this.isExpired(session)) {
-        const expiredPayload: CheckoutExpiredPayload = { sessionToken, session };
-        this.emit('expired', expiredPayload);
-        this.emitError(new CheckoutSDKError('Checkout session has expired', 'session_expired'));
-        this.close('expired');
-        return;
+    if (previous !== status) {
+      this.emit('status', {
+        status,
+        previousStatus: previous ?? undefined,
+        invoice: session.invoice,
+        session,
+      });
+
+      this.options.onStatusChange?.({
+        status,
+        previousStatus: previous ?? undefined,
+        invoice: session.invoice,
+        session,
+      });
+
+      const statusEvent = status === 'completed' ? undefined : eventNameForStatus[status];
+      if (statusEvent) {
+        this.emit(statusEvent, { invoice: session.invoice, session });
       }
-
-      const previous = this.currentStatus;
-      const current = session.invoice.status;
-
-      if (previous !== current) {
-        this.emit('status', {
-          status: current,
-          previousStatus: previous ?? undefined,
-          invoice: session.invoice,
-          session,
-        });
-
-        if (this.options.onStatusChange) {
-          this.options.onStatusChange({
-            status: current,
-            previousStatus: previous ?? undefined,
-            invoice: session.invoice,
-            session,
-          });
-        }
-
-        const statusEvent = current === 'completed' ? undefined : eventNameForStatus[current];
-        if (statusEvent) {
-          this.emit(statusEvent, { invoice: session.invoice, session });
-        }
-      }
-
-      if (current === 'completed') {
-        this.completed = true;
-        this.emit('payment.completed', { invoice: session.invoice, session });
-        this.options.onSuccess?.({ invoice: session.invoice, session });
-
-        if (this.options.autoClose) {
-          this.close('completed');
-        }
-
-        return;
-      }
-
-      this.session = session;
-      this.currentStatus = current;
-    } catch (error) {
-      this.emitError(error);
-      this.close('error');
     }
+
+    const isPaidTerminal = status === 'paid' && this.options.mode === 'iframe';
+    if (status === 'completed' || isPaidTerminal) {
+      this.completed = true;
+      this.emit(isPaidTerminal ? 'payment.paid' : 'payment.completed', {
+        invoice: session.invoice,
+        session,
+      });
+      this.options.onSuccess?.({ invoice: session.invoice, session });
+
+      if (this.options.autoClose) {
+        this.close('completed');
+      }
+      return;
+    }
+
+    this.session = session;
+    this.currentStatus = status;
+  }
+
+  private startHeartbeatCheck(): void {
+    if (this.heartbeatTimer !== null) return;
+    this.heartbeatTimer = window.setInterval(() => {
+      if (!this.isOpen || this.completed || this.destroyed) {
+        return;
+      }
+      const elapsed = Date.now() - this.lastMessageTimestamp;
+      if (elapsed > HEARTBEAT_TIMEOUT_MS) {
+        this.emitError(
+          new CheckoutSDKError('Hosted checkout is not responding', 'host_unresponsive')
+        );
+      }
+    }, HEARTBEAT_CHECK_INTERVAL_MS);
   }
 
   private isExpired(session: CheckoutSessionResponse): boolean {
@@ -915,19 +965,14 @@ export class SwiftPayCheckout {
   private cleanupOpen(): void {
     this.isOpen = false;
 
-    if (this.pollTimer !== null) {
-      window.clearInterval(this.pollTimer);
-      this.pollTimer = null;
-    }
-
     if (this.popupPollTimer !== null) {
       window.clearInterval(this.popupPollTimer);
       this.popupPollTimer = null;
     }
 
-    if (this.eventSource) {
-      this.eventSource.close();
-      this.eventSource = null;
+    if (this.heartbeatTimer !== null) {
+      window.clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
     }
 
     this.detachPostMessageListener();
@@ -964,7 +1009,7 @@ declare global {
 }
 
 if (typeof window !== 'undefined') {
-  window.SwiftPayCheckout = SwiftPayCheckout;
+  (window as any).SwiftPayCheckout = SwiftPayCheckout;
 }
 
 export default SwiftPayCheckout;

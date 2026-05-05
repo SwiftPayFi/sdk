@@ -41,9 +41,9 @@ dev = [
 
 [project.urls]
 Homepage = "https://docs.swiftpay.finance"
-Repository = "https://github.com/swiftpay/swiftpay.finance"
-Issues = "https://github.com/swiftpay/swiftpay.finance/issues"
-Changelog = "https://github.com/swiftpay/swiftpay.finance/blob/main/sdk/python/CHANGELOG.md"
+Repository = "https://github.com/swiftpayfi/sdk"
+Issues = "https://github.com/swiftpayfi/sdk/issues"
+Changelog = "https://github.com/swiftpayfi/sdk/blob/main/sdk/python/CHANGELOG.md"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/swiftpay"]
