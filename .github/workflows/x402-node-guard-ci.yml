@@ -2,17 +2,18 @@ name: sdk/x402-node-guard · ci
 
 on:
   pull_request:
+    branches: [main, dev]
     paths:
       - 'x402-node-guard/**'
       - '.github/workflows/x402-node-guard-ci.yml'
   push:
-    branches: [main]
+    branches-ignore: [main, dev]
     paths:
       - 'x402-node-guard/**'
       - '.github/workflows/x402-node-guard-ci.yml'
 
 concurrency:
-  group: sdk-x402-node-guard-ci-${{ github.ref }}
+  group: sdk-x402-node-guard-ci-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
