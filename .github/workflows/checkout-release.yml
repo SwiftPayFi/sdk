@@ -63,39 +63,37 @@ jobs:
             npx changeset pre exit 2>/dev/null || true
           fi
 
-      # Changesets: either opens version PR or publishes (depending on branch)
-      - name: Create version PR or publish
+      # Changesets: version packages (opens PR or creates commit)
+      - name: Create version PR
         id: changesets
         uses: changesets/action@v1
         with:
           cwd: checkout
           version: npm run version
-          publish: npm publish --tag ${{ steps.tag.outputs.TAG }}
+          publish: false
           commit: 'chore(sdk/checkout): version bump'
           title: 'chore(sdk/checkout): version packages'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_CONFIG_PROVENANCE: 'true'
 
       # Extract version for S3 upload
       - name: Extract version
         id: version
         working-directory: checkout
-        if: steps.changesets.outputs.published == 'true'
+        if: steps.changesets.outputs.hasChangesets == 'false'
         run: echo "VERSION=$(jq -r .version package.json)" >> $GITHUB_OUTPUT
 
       # Configure AWS credentials for S3 upload
       - name: Configure AWS credentials
-        if: steps.changesets.outputs.published == 'true'
+        if: steps.changesets.outputs.hasChangesets == 'false'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: us-east-1
 
-      # Upload IIFE to S3 with version and tag
+      # Upload IIFE to S3 (before npm publish)
       - name: Publish IIFE to S3
-        if: steps.changesets.outputs.published == 'true'
+        if: steps.changesets.outputs.hasChangesets == 'false'
         working-directory: checkout
         run: |
           # Upload versioned file (immutable, long cache)
@@ -108,7 +106,16 @@ jobs:
             --cache-control "public, max-age=3600" \
             --content-type "application/javascript"
         env:
-          AWS_REGION: us-east-1
+          AWS_REGION: ${{ secrets.AWS_CDN_REGION }}
+
+      # Publish to npm (after S3 upload)
+      - name: Publish to npm
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        working-directory: checkout
+        run: npm publish --tag ${{ steps.tag.outputs.TAG }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'
 
       - name: Package info
         working-directory: checkout

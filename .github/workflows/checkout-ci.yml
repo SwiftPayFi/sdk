@@ -7,14 +7,14 @@ on:
       - 'checkout/**'
       - '.github/workflows/checkout-ci.yml'
   push:
-    branches: [main, dev, 'feat/**']
+    branches-ignore: [main, dev]
     paths:
       - 'checkout/**'
       - '.github/workflows/checkout-ci.yml'
 
-# Cancel older runs on the same ref so the latest push wins.
+# Only one workflow per branch (push or PR, whichever is latest)
 concurrency:
-  group: sdk-checkout-ci-${{ github.ref }}
+  group: sdk-checkout-ci-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:

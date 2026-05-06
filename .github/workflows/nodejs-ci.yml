@@ -2,18 +2,19 @@ name: sdk/nodejs · ci
 
 on:
   pull_request:
+    branches: [main, dev]
     paths:
       - 'nodejs/**'
       - '.github/workflows/nodejs-ci.yml'
   push:
-    branches: [main]
+    branches-ignore: [main, dev]
     paths:
       - 'nodejs/**'
       - '.github/workflows/nodejs-ci.yml'
 
-# Cancel older runs on the same ref so the latest push wins.
+# Only one workflow per branch (push or PR, whichever is latest)
 concurrency:
-  group: sdk-nodejs-ci-${{ github.ref }}
+  group: sdk-nodejs-ci-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
