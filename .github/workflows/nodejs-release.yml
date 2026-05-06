@@ -62,16 +62,33 @@ jobs:
             npx changeset pre exit 2>/dev/null || true
           fi
 
-      - name: Create version PR or publish
+      # Version packages using changesets CLI
+      - name: Version packages
         id: changesets
-        uses: changesets/action@v1
-        with:
-          cwd: nodejs
-          version: npm run version
-          publish: npm publish --tag ${{ steps.tag.outputs.TAG }}
-          commit: 'chore(sdk/nodejs): release'
-          title: 'chore(sdk/nodejs): release'
+        working-directory: nodejs
+        run: |
+          npx changeset version
+          # Check if there were changes to commit
+          if git diff --quiet; then
+            echo "hasChangesets=true" >> $GITHUB_OUTPUT
+          else
+            echo "hasChangesets=false" >> $GITHUB_OUTPUT
+            git add -A
+            git commit -m "chore(sdk/nodejs): release"
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Push version commit
+      - name: Push version commit
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        run: git push
+
+      # Publish to npm using changesets CLI
+      - name: Publish to npm
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        working-directory: nodejs
+        run: npx changeset publish --tag ${{ steps.tag.outputs.TAG }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: 'true'
