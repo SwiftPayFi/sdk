@@ -2,7 +2,7 @@ name: sdk/x402-fastapi-guard · release
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
     paths:
       - 'x402-fastapi-guard/**'
       - '.github/workflows/x402-fastapi-guard-release.yml'
@@ -10,17 +10,17 @@ on:
       - '.release-please-config.json'
 
 concurrency:
-  group: sdk-x402-fastapi-guard-release
+  group: sdk-x402-fastapi-guard-release-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
   contents: write
   pull-requests: write
-  id-token: write
 
 jobs:
   release-please:
-    name: open release PR or tag
+    name: open release PR or tag (main branch)
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       release_created: ${{ steps.release.outputs['x402-fastapi-guard--release_created'] }}
@@ -32,17 +32,14 @@ jobs:
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  publish:
-    name: publish to PyPI
+  publish-latest:
+    name: publish latest to PyPI (main)
     needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
+    if: github.ref == 'refs/heads/main' && needs.release-please.outputs.release_created == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: x402-fastapi-guard
-    environment:
-      name: pypi
-      url: https://pypi.org/p/swiftpay-x402-fastapi-guard
     steps:
       - uses: actions/checkout@v4
         with:
@@ -62,7 +59,67 @@ jobs:
       - name: Build sdist + wheel
         run: python -m build
 
-      - name: Publish to PyPI (Trusted Publishers, OIDC)
+      - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: x402-fastapi-guard/dist/
+          password: ${{ secrets.PYPI_PUBLISH_TOKEN }}
+
+  publish-beta:
+    name: publish beta to PyPI (dev)
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: x402-fastapi-guard
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Bump version to beta
+        run: |
+          import re
+          from pathlib import Path
+
+          # Read current version from pyproject.toml
+          pyproject = Path("pyproject.toml").read_text()
+          match = re.search(r'version = "([^"]+)"', pyproject)
+          current_version = match.group(1)
+
+          # Parse version: 0.1.0 -> bump to 0.1.1-beta.0
+          parts = current_version.split('.')
+          if '-beta' in current_version:
+            # Already beta: 0.1.1-beta.0 -> 0.1.1-beta.1
+            base, beta = current_version.rsplit('-', 1)
+            beta_num = int(beta.split('.')[-1]) + 1
+            new_version = f"{base}-beta.{beta_num}"
+          else:
+            # Release: 0.1.0 -> 0.1.1-beta.0
+            parts[-1] = str(int(parts[-1]) + 1)
+            new_version = '.'.join(parts) + '-beta.0'
+
+          print(f"Bumping {current_version} -> {new_version}")
+
+          # Update pyproject.toml
+          pyproject = pyproject.replace(f'version = "{current_version}"', f'version = "{new_version}"')
+          Path("pyproject.toml").write_text(pyproject)
+        shell: python
+
+      - name: Install build deps
+        run: uv pip install --system build
+
+      - name: Build sdist + wheel
+        run: python -m build
+
+      - name: Publish beta to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: x402-fastapi-guard/dist/
+          password: ${{ secrets.PYPI_PUBLISH_TOKEN }}
