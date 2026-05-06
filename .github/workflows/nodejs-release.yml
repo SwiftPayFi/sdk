@@ -61,7 +61,7 @@ jobs:
         with:
           cwd: nodejs
           version: npm run version
-          publish: npm run build && npm publish --tag ${{ steps.tag.outputs.TAG }}
+          publish: npm publish --tag ${{ steps.tag.outputs.TAG }}
           commit: 'chore(sdk/nodejs): release'
           title: 'chore(sdk/nodejs): release'
         env:

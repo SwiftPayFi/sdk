@@ -60,7 +60,7 @@ jobs:
         with:
           cwd: checkout
           version: npm run version
-          publish: npm run build && npm publish --tag ${{ steps.tag.outputs.TAG }}
+          publish: npm publish --tag ${{ steps.tag.outputs.TAG }}
           commit: 'chore(sdk/checkout): version bump'
           title: 'chore(sdk/checkout): version packages'
         env:
