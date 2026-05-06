@@ -1,6 +1,6 @@
 {
   "name": "@swiftpayfi/api-client",
-  "version": "0.1.0",
+  "version": "0.1.0-beta.0",
   "description": "Server-side TypeScript SDK for the SwiftPay REST API",
   "type": "module",
   "main": "dist/index.js",

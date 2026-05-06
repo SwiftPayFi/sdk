@@ -209,8 +209,7 @@ const DEFAULT_POPUP_HEIGHT = 740;
 const CHECKOUT_EVENT_SOURCE = 'swiftpay-checkout';
 const HEARTBEAT_CHECK_INTERVAL_MS = 15_000;
 const HEARTBEAT_TIMEOUT_MS = 30_000;
-// const SANDBOX_API_BASE_URL = 'https://sandbox-api.swiftpay.finance';
-const SANDBOX_API_BASE_URL = 'http://localhost:8888';
+const SANDBOX_API_BASE_URL = 'https://sandbox-api.swiftpay.finance';
 const PRODUCTION_API_BASE_URL = 'https://api.swiftpay.finance';
 
 const getApiBaseUrl = (sandbox: boolean): string => {
