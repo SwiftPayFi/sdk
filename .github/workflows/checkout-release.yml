@@ -5,7 +5,6 @@ on:
     branches: [main, dev]
     paths:
       - 'checkout/**'
-      - '.changeset/**'
       - '.github/workflows/checkout-release.yml'
   workflow_dispatch:
 
@@ -63,18 +62,27 @@ jobs:
             npx changeset pre exit 2>/dev/null || true
           fi
 
-      # Changesets: version packages (opens PR or creates commit)
-      - name: Create version PR
+      # Version packages using changesets CLI
+      - name: Version packages
         id: changesets
-        uses: changesets/action@v1
-        with:
-          cwd: checkout
-          version: npm run version
-          publish: false
-          commit: 'chore(sdk/checkout): version bump'
-          title: 'chore(sdk/checkout): version packages'
+        working-directory: checkout
+        run: |
+          npx changeset version
+          # Check if there were changes to commit
+          if git diff --quiet; then
+            echo "hasChangesets=true" >> $GITHUB_OUTPUT
+          else
+            echo "hasChangesets=false" >> $GITHUB_OUTPUT
+            git add -A
+            git commit -m "chore(sdk/checkout): version bump"
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Push version commit
+      - name: Push version commit
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        run: git push
 
       # Extract version for S3 upload
       - name: Extract version
@@ -108,16 +116,16 @@ jobs:
         env:
           AWS_REGION: ${{ secrets.AWS_CDN_REGION }}
 
-      # Publish to npm (after S3 upload)
+      # Publish to npm using changesets CLI (after S3 upload)
       - name: Publish to npm
         if: steps.changesets.outputs.hasChangesets == 'false'
         working-directory: checkout
-        run: npm publish --tag ${{ steps.tag.outputs.TAG }}
+        run: npx changeset publish --tag ${{ steps.tag.outputs.TAG }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: 'true'
 
       - name: Package info
         working-directory: checkout
-        if: steps.changesets.outputs.published == 'true'
+        if: steps.changesets.outputs.hasChangesets == 'false'
         run: npm pack --dry-run
