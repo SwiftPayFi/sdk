@@ -54,7 +54,7 @@ jobs:
         run: uv python install 3.12
 
       - name: Install build deps
-        run: uv pip install --system build
+        run: uv pip install build
 
       - name: Build sdist + wheel
         run: python -m build
@@ -119,7 +119,7 @@ jobs:
         shell: python
 
       - name: Install build deps
-        run: uv pip install --system build
+        run: uv pip install build
 
       - name: Build sdist + wheel
         run: python -m build
