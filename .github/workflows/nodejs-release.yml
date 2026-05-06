@@ -2,7 +2,7 @@ name: sdk/nodejs · release
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
     paths:
       - 'nodejs/**'
       - '.github/workflows/nodejs-release.yml'
@@ -42,6 +42,16 @@ jobs:
         working-directory: nodejs
         run: npm run build
 
+      # Determine release tag (beta on dev, latest on main)
+      - name: Determine release tag
+        id: tag
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
+            echo "TAG=beta"
+          else
+            echo "TAG=latest"
+          fi >> $GITHUB_OUTPUT
+
       # Either opens / updates a "Version Packages" PR (when there are pending
       # changesets and we're not on a version-bump commit), or runs `release`
       # to publish (when the bump PR has been merged).
@@ -51,7 +61,7 @@ jobs:
         with:
           cwd: nodejs
           version: npm run version
-          publish: npm run release
+          publish: npm run build && npm publish --tag ${{ steps.tag.outputs.TAG }}
           commit: 'chore(sdk/nodejs): release'
           title: 'chore(sdk/nodejs): release'
         env:
