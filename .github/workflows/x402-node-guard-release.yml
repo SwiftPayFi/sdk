@@ -2,7 +2,7 @@ name: sdk/x402-node-guard · release
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
     paths:
       - 'x402-node-guard/**'
       - '.github/workflows/x402-node-guard-release.yml'
@@ -44,13 +44,23 @@ jobs:
         working-directory: x402-node-guard
         run: npm run build
 
+      # Determine release tag (beta on dev, latest on main)
+      - name: Determine release tag
+        id: tag
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
+            echo "TAG=beta"
+          else
+            echo "TAG=latest"
+          fi >> $GITHUB_OUTPUT
+
       - name: Create version PR or publish
         id: changesets
         uses: changesets/action@v1
         with:
           cwd: x402-node-guard
           version: npm run version
-          publish: npm run release
+          publish: npm run build && npm publish --tag ${{ steps.tag.outputs.TAG }}
           commit: 'chore(sdk/x402-node-guard): release'
           title: 'chore(sdk/x402-node-guard): release'
         env:

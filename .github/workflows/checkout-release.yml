@@ -43,6 +43,16 @@ jobs:
         working-directory: checkout
         run: npm run build
 
+      # Determine release tag (beta on dev, latest on main)
+      - name: Determine release tag
+        id: tag
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
+            echo "TAG=beta"
+          else
+            echo "TAG=latest"
+          fi >> $GITHUB_OUTPUT
+
       # Changesets: either opens version PR or publishes (depending on branch)
       - name: Create version PR or publish
         id: changesets
@@ -50,7 +60,7 @@ jobs:
         with:
           cwd: checkout
           version: npm run version
-          publish: npm run release
+          publish: npm run build && npm publish --tag ${{ steps.tag.outputs.TAG }}
           commit: 'chore(sdk/checkout): version bump'
           title: 'chore(sdk/checkout): version packages'
         env:
@@ -64,17 +74,6 @@ jobs:
         working-directory: checkout
         if: steps.changesets.outputs.published == 'true'
         run: echo "VERSION=$(jq -r .version package.json)" >> $GITHUB_OUTPUT
-
-      # Determine release tag (beta on dev, latest on main)
-      - name: Determine release tag
-        id: tag
-        if: steps.changesets.outputs.published == 'true'
-        run: |
-          if [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
-            echo "TAG=beta"
-          else
-            echo "TAG=latest"
-          fi >> $GITHUB_OUTPUT
 
       # Configure AWS credentials for S3 upload
       - name: Configure AWS credentials
