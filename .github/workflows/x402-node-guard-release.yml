@@ -60,7 +60,7 @@ jobs:
         with:
           cwd: x402-node-guard
           version: npm run version
-          publish: npm run build && npm publish --tag ${{ steps.tag.outputs.TAG }}
+          publish: npm publish --tag ${{ steps.tag.outputs.TAG }}
           commit: 'chore(sdk/x402-node-guard): release'
           title: 'chore(sdk/x402-node-guard): release'
         env:

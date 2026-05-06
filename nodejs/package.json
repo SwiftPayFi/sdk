@@ -59,8 +59,7 @@
     "test:coverage": "vitest run --coverage",
     "changeset": "changeset",
     "version": "changeset version",
-    "release": "npm run build && changeset publish",
-    "prepublishOnly": "npm run clean && npm run lint && npm run typecheck && npm run test && npm run build"
+    "release": "npm run build && changeset publish"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.6.0",
