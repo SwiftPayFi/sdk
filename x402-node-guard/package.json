@@ -1,6 +1,6 @@
 {
   "name": "@swiftpayfi/x402-node-guard",
-  "version": "0.1.0",
+  "version": "0.1.0-beta.0",
   "description": "x402 payment middleware for Express and Fastify — powered by the SwiftPay API",
   "type": "module",
   "exports": {
@@ -23,7 +23,8 @@
   "files": [
     "dist",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "sideEffects": false,
   "engines": {

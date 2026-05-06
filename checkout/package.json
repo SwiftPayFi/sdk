@@ -1,6 +1,6 @@
 {
   "name": "@swiftpayfi/checkout-sdk",
-  "version": "0.1.0",
+  "version": "0.1.0-beta.0",
   "description": "SwiftPay browser + React checkout SDK",
   "type": "module",
   "main": "dist/index.js",
@@ -17,6 +17,13 @@
       "import": "./dist/react.js"
     }
   },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": false,
   "scripts": {
     "build": "npm run build:types && tsup",
     "build:types": "tsc -p . --emitDeclarationOnly --outDir dist",

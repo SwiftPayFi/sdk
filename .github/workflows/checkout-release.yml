@@ -53,6 +53,16 @@ jobs:
             echo "TAG=latest"
           fi >> $GITHUB_OUTPUT
 
+      # Enter beta pre-release mode on dev, exit on main
+      - name: Configure pre-release mode
+        working-directory: checkout
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
+            npx changeset pre enter beta 2>/dev/null || true
+          else
+            npx changeset pre exit 2>/dev/null || true
+          fi
+
       # Changesets: either opens version PR or publishes (depending on branch)
       - name: Create version PR or publish
         id: changesets
