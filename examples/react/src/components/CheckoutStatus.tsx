@@ -40,11 +40,11 @@ export default function CheckoutStatus({
           </div>
           <div className="status-item">
             <span className="status-label">Amount Expected:</span>
-            <span className="status-value">${session.invoice.amountExpected.toFixed(2)}</span>
+            <span className="status-value">{session.invoice.amountExpected ?? '–'} {session.invoice.tokenSymbol}</span>
           </div>
           <div className="status-item">
             <span className="status-label">Pending Amount:</span>
-            <span className="status-value">${session.invoice.pendingAmount.toFixed(2)}</span>
+            <span className="status-value">{session.invoice.pendingAmount ?? '–'} {session.invoice.tokenSymbol}</span>
           </div>
         </>
       )}

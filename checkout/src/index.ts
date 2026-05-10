@@ -24,23 +24,31 @@ export interface CheckoutInvoice {
   createdAt: ISO8601DateString;
 }
 
-export interface MerchantBranding {
-  brandName: string | null;
-  logoUrl: string | null;
-  faviconUrl: string | null;
-  accentColor: string | null;
-  themeMode: 'light' | 'dark' | 'auto';
-  supportEmail: string | null;
-  termsUrl: string | null;
-  privacyUrl: string | null;
-  allowedCallbackHosts: string[];
-  createdAt: ISO8601DateString;
-  updatedAt: ISO8601DateString;
+/** Client-safe branding overrides accepted by createSession. URL and name fields are
+ *  excluded — those come exclusively from server-side merchant branding settings. */
+export interface CheckoutOverrides {
+  accentColor?: string | null;
+  themeMode?: 'light' | 'dark' | 'auto' | null;
+  sandbox?: boolean;
+}
+
+/** Full branding snapshot returned in every session response.
+ *  URL and name fields are populated server-side from merchant branding settings. */
+export interface CheckoutConfig {
+  brandName?: string | null;
+  logoUrl?: string | null;
+  faviconUrl?: string | null;
+  accentColor?: string | null;
+  themeMode?: 'light' | 'dark' | 'auto' | null;
+  supportEmail?: string | null;
+  termsUrl?: string | null;
+  privacyUrl?: string | null;
+  sandbox?: boolean;
 }
 
 export interface CheckoutSessionResponse {
   sessionToken: string;
-  checkout: Record<string, unknown>;
+  checkout: CheckoutConfig;
   checkoutUrl: string;
   /** Origin captured at session creation. Required by the backend's session-origin guard. */
   sessionOrigin?: string | null;
@@ -48,22 +56,15 @@ export interface CheckoutSessionResponse {
   callbackUrl?: string | null;
   /** Token used to authenticate postMessage payloads from the hosted checkout iframe. */
   postMessageToken: string;
-  /** Merchant branding snapshot for the hosted checkout. */
-  branding?: MerchantBranding | null;
   expiresAt: ISO8601DateString | null;
   createdAt: ISO8601DateString;
   invoice: CheckoutInvoice;
 }
 
-export interface CheckoutCreateBody {
-  token: string;
-  amount: number;
-  chains?: string[];
-  externalRef?: string;
-  expiresAt?: ISO8601DateString;
-  metadata?: Record<string, unknown>;
-  checkout?: Record<string, unknown>;
-  recipient?: string;
+interface CheckoutSessionBody {
+  invoiceId: string;
+  callbackUrl?: string;
+  checkout?: CheckoutOverrides;
 }
 
 export type CheckoutMode = 'popup' | 'iframe' | 'redirect';
@@ -88,24 +89,21 @@ export interface CheckoutClosePayload {
   session?: CheckoutSessionResponse;
 }
 
-export interface CreateInvoiceOptions {
-  amount: number;
-  token?: string;
-  reference?: string;
-  chains?: string[];
-  metadata?: Record<string, unknown>;
-  expiresAt?: Date | string;
-  recipient?: string;
+export interface CreateCheckoutSessionOptions {
+  /** ID of a pre-existing invoice created server-side via POST /v1/invoices. */
+  invoiceId: string;
+  /** Overrides the SDK-level callbackUrl for this session. */
+  callbackUrl?: string;
+  /** Branding overrides merged on top of SDK-level checkout defaults. */
+  checkout?: CheckoutOverrides;
 }
 
 export interface SwiftPayCheckoutOptions {
   /** Publishable key from dashboard */
   key: string;
 
-  /** Default asset and chain (can be overridden per invoice in createInvoice) */
-  token?: string;
-  chains?: string[];
-  checkout?: Record<string, unknown>;
+  /** Default branding overrides merged with per-session overrides in createSession. */
+  checkout?: CheckoutOverrides;
 
   /** SDK-specific behaviour */
   mode?: CheckoutMode;
@@ -365,83 +363,45 @@ export class SwiftPayCheckout {
     }
   }
 
-  public async createInvoice(invoiceOptions: CreateInvoiceOptions): Promise<CheckoutSessionResponse> {
+  public async createSession(sessionOptions: CreateCheckoutSessionOptions): Promise<CheckoutSessionResponse> {
     this.ensureBrowserEnvironment();
 
     if (this.destroyed) {
-      throw new CheckoutSDKError('Cannot create invoice on a destroyed checkout instance', 'instance_destroyed');
+      throw new CheckoutSDKError('Cannot create session on a destroyed checkout instance', 'instance_destroyed');
     }
 
-    if (!Number.isFinite(invoiceOptions.amount)) {
-      throw new CheckoutSDKError('Amount must be a finite number', 'invalid_options');
+    if (!sessionOptions.invoiceId || sessionOptions.invoiceId.trim() === '') {
+      throw new CheckoutSDKError('invoiceId is required', 'invalid_options');
     }
 
-    if (invoiceOptions.amount <= 0) {
-      throw new CheckoutSDKError('Amount must be greater than zero', 'invalid_options');
-    }
-
-    const token = invoiceOptions.token ?? this.options.token;
-    if (!token || token.trim() === '') {
-      throw new CheckoutSDKError('Token is required (token)', 'invalid_options');
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionOptions.invoiceId)) {
+      throw new CheckoutSDKError('invoiceId must be a valid UUID', 'invalid_options');
     }
 
     this.resetForOpen();
 
-    const body: CheckoutCreateBody = {
-      token,
-      amount: invoiceOptions.amount,
+    const body: CheckoutSessionBody = {
+      invoiceId: sessionOptions.invoiceId,
     };
 
-    if (invoiceOptions.reference) {
-      body.externalRef = invoiceOptions.reference;
+    // Resolve callbackUrl: per-call > SDK-level > current page URL.
+    const callbackUrl =
+      sessionOptions.callbackUrl ??
+      this.options.callbackUrl ??
+      (typeof window !== 'undefined' ? window.location?.href : undefined);
+
+    if (callbackUrl) {
+      body.callbackUrl = callbackUrl;
     }
 
-    if (invoiceOptions.chains?.length) {
-      body.chains = invoiceOptions.chains;
-    } else if (this.options.chains?.length) {
-      body.chains = this.options.chains;
-    }
-
-    if (invoiceOptions.recipient) {
-      body.recipient = invoiceOptions.recipient;
-    }
-
-    if (invoiceOptions.metadata) {
-      body.metadata = invoiceOptions.metadata;
-    }
-
-    const checkoutConfig: Record<string, unknown> = {
+    // Merge SDK-level checkout overrides with per-call overrides.
+    const checkoutConfig: CheckoutOverrides = {
       ...(this.options.checkout ?? {}),
+      ...(sessionOptions.checkout ?? {}),
       sandbox: this.options.sandbox ?? false,
     };
 
-    if (this.options.callbackUrl) {
-      checkoutConfig.callbackUrl = this.options.callbackUrl;
-    } else if (
-      this.options.callbackUrl === undefined &&
-      typeof window !== 'undefined' &&
-      window.location?.href
-    ) {
-      checkoutConfig.callbackUrl = window.location.href;
-    }
-
-    const hasCheckoutConfig = Object.keys(checkoutConfig).length > 0;
-    if (hasCheckoutConfig) {
-      body.checkout = checkoutConfig;
-    }
-
-    if (invoiceOptions.expiresAt) {
-      const expiresAt =
-        invoiceOptions.expiresAt instanceof Date
-          ? invoiceOptions.expiresAt
-          : new Date(invoiceOptions.expiresAt);
-
-      if (Number.isNaN(expiresAt.getTime())) {
-        throw new CheckoutSDKError('expiresAt must be a valid date', 'invalid_options');
-      }
-
-      body.expiresAt = expiresAt.toISOString();
-    }
+    body.checkout = checkoutConfig;
 
     try {
       const session = await this.request<CheckoutSessionResponse>('/v1/checkout/sessions', {
@@ -467,7 +427,7 @@ export class SwiftPayCheckout {
     }
 
     if (!this.session) {
-      throw new CheckoutSDKError('Call createInvoice() before open()', 'no_session');
+      throw new CheckoutSDKError('Call createSession() before open()', 'no_session');
     }
 
     if (this.isOpen || this.isProcessing) {
@@ -548,10 +508,6 @@ export class SwiftPayCheckout {
 
   public getSession(): CheckoutSessionResponse | null {
     return this.session;
-  }
-
-  public getBranding(): MerchantBranding | null {
-    return this.session?.branding ?? null;
   }
 
   public getIframeElement(): HTMLIFrameElement | null {

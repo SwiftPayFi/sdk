@@ -4,9 +4,8 @@ import {
   CheckoutSDKError,
   type CheckoutMode,
   type CheckoutSessionResponse,
-  type CreateInvoiceOptions,
+  type CreateCheckoutSessionOptions,
   type InvoiceStatus,
-  type MerchantBranding,
   type SwiftPayCheckoutOptions,
 } from './index';
 
@@ -16,13 +15,12 @@ export interface UseSwiftPayCheckoutOptions extends SwiftPayCheckoutOptions {
 
 export interface UseSwiftPayCheckoutResult {
   instance: SwiftPayCheckout | null;
-  createInvoice: (options: CreateInvoiceOptions) => Promise<CheckoutSessionResponse | null>;
+  createSession: (options: CreateCheckoutSessionOptions) => Promise<CheckoutSessionResponse | null>;
   open: (openOptions?: { mode?: CheckoutMode }) => Promise<CheckoutSessionResponse | null>;
   close: () => void;
   isReady: boolean;
   isLoading: boolean;
   session: CheckoutSessionResponse | null;
-  branding: MerchantBranding | null;
   status: InvoiceStatus | null;
   error: CheckoutSDKError | null;
 }
@@ -91,15 +89,15 @@ export const useSwiftPayCheckout = (options: UseSwiftPayCheckoutOptions): UseSwi
     };
   }, [options.key, options.mode, options.sandbox]);
 
-  const createInvoice = useCallback(
-    async (invoiceOptions: CreateInvoiceOptions): Promise<CheckoutSessionResponse | null> => {
+  const createSession = useCallback(
+    async (sessionOptions: CreateCheckoutSessionOptions): Promise<CheckoutSessionResponse | null> => {
       if (!instanceRef.current) {
         return null;
       }
 
       try {
         setIsLoading(true);
-        const sessionResponse = await instanceRef.current.createInvoice(invoiceOptions);
+        const sessionResponse = await instanceRef.current.createSession(sessionOptions);
         setSession(sessionResponse);
         setStatus(sessionResponse.invoice.status);
         setError(null);
@@ -147,13 +145,12 @@ export const useSwiftPayCheckout = (options: UseSwiftPayCheckoutOptions): UseSwi
 
   return {
     instance: instanceRef.current,
-    createInvoice,
+    createSession,
     open,
     close,
     isReady,
     isLoading,
     session,
-    branding: session?.branding ?? null,
     status,
     error,
   };

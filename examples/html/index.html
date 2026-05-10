@@ -383,15 +383,29 @@
   <script src="../../checkout/dist/index.iife.js"></script>
 
   <script>
-    // Initialize checkout instance
     let checkout = null;
     let currentMode = 'popup';
 
-    function initializeCheckout() {
-      // Replace with your actual publishable key from SwiftPay dashboard
-      const publishableKey = 'pk_test_G2ok56N9gFFbia3jSQ8hjJZpAvv9m68iAgg2CTeWw2AT';
+    // ---------------------------------------------------------------------------
+    // Server-side step: your backend creates the invoice with your secret key.
+    // The browser never sees the secret key or controls payment parameters.
+    // Replace this with a real fetch to your own API endpoint.
+    // ---------------------------------------------------------------------------
+    async function createInvoiceOnServer(product) {
+      const res = await fetch('/api/create-invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: product.productId,
+          productName: product.productName,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to create invoice on server');
+      const { invoiceId } = await res.json();
+      return invoiceId;
+    }
 
-      // Check if SDK is loaded
+    function initializeCheckout() {
       if (typeof SwiftPayCheckout === 'undefined') {
         showMessage(
           'SDK not loaded. Make sure to build the SDK first: cd ../checkout && npm run build',
@@ -400,74 +414,58 @@
         return;
       }
 
-      if (!publishableKey.startsWith('pk_')) {
-        showMessage(
-          'Please set your publishable key in the script. Get one from https://dashboard.swiftpay.finance',
-          'error'
-        );
-        return;
-      }
+      // Replace with your actual publishable key from the SwiftPay dashboard.
+      const publishableKey = 'pk_test_G2ok56N9gFFbia3jSQ8hjJZpAvv9m68iAgg2CTeWw2AT';
 
       checkout = new SwiftPayCheckout({
         key: publishableKey,
-        token: 'USDC', // Default token
-        chains: ["sepolia", "base-sepolia"],
         mode: currentMode,
-        sandbox: true, // Use sandbox for testing
+        sandbox: true,
         autoClose: true,
-        pollIntervalMs: 4000,
       });
 
       setupCheckoutListeners();
     }
 
     function setupCheckoutListeners() {
-      // Ready event
       checkout.on('ready', ({ session }) => {
         console.log('✅ Session ready:', session);
         updateStatus('sessionStatus', 'ready');
       });
 
-      // Open event
-      checkout.on('open', ({ mode, checkoutUrl, session }) => {
+      checkout.on('open', ({ mode }) => {
         console.log('🔓 Checkout opened in mode:', mode);
         updateStatus('sessionStatus', `opened (${mode})`);
       });
 
-      // Close event
-      checkout.on('close', ({ reason, session }) => {
+      checkout.on('close', ({ reason }) => {
         console.log('❌ Checkout closed:', reason);
         updateStatus('sessionStatus', `closed (${reason})`);
       });
 
-      // Status change
-      checkout.on('status', ({ status, previousStatus, invoice, session }) => {
+      checkout.on('status', ({ status, previousStatus }) => {
         console.log(`📊 Status changed: ${previousStatus} → ${status}`);
         updateStatus('invoiceStatus', status);
       });
 
-      // Payment pending
-      checkout.on('payment.pending', ({ invoice, session }) => {
+      checkout.on('payment.pending', ({ invoice }) => {
         console.log('⏳ Payment pending:', invoice.reference);
         updateStatus('invoiceStatus', 'pending');
         showMessage(`Payment pending for ${invoice.reference}`, 'info');
       });
 
-      // Partial payment
-      checkout.on('payment.partial', ({ invoice, session }) => {
+      checkout.on('payment.partial', ({ invoice }) => {
         console.log('📦 Partial payment:', invoice.pendingAmount);
         updateStatus('invoiceStatus', 'partial');
         updateStatus('amountPaid', `${invoice.pendingAmount} / ${invoice.amountExpected} USD`);
       });
 
-      // Full payment
-      checkout.on('payment.paid', ({ invoice, session }) => {
+      checkout.on('payment.paid', ({ invoice }) => {
         console.log('💰 Full payment received:', invoice.reference);
         updateStatus('invoiceStatus', 'paid');
       });
 
-      // Payment completed
-      checkout.on('payment.completed', ({ invoice, session }) => {
+      checkout.on('payment.completed', ({ invoice }) => {
         console.log('✨ Payment completed:', invoice);
         updateStatus('invoiceStatus', 'completed');
         updateStatus('amountPaid', `${invoice.amountExpected} USD`);
@@ -477,20 +475,17 @@
         );
       });
 
-      // Error
       checkout.on('error', ({ error }) => {
         console.error('❌ Checkout error:', error);
         showMessage(`Error: ${error.message}`, 'error');
       });
 
-      // Redirect (redirect mode only)
-      checkout.on('redirect', ({ url, session }) => {
+      checkout.on('redirect', ({ url }) => {
         console.log('🔀 Redirecting to:', url);
         showMessage('Redirecting to checkout...', 'info');
       });
 
-      // Expired
-      checkout.on('expired', ({ sessionToken, session }) => {
+      checkout.on('expired', () => {
         console.warn('⏰ Session expired');
         showMessage('Session expired. Please try again.', 'error');
       });
@@ -502,30 +497,19 @@
         const newMode = e.target.dataset.mode;
         currentMode = newMode;
 
-        // Update active button
         document.querySelectorAll('.mode-btn').forEach((b) => b.classList.remove('active'));
         e.target.classList.add('active');
-
-        // Update display
         updateStatus('currentMode', newMode);
 
-        // Reinitialize checkout with new mode
-        if (checkout) {
-          checkout.destroy();
-        }
+        if (checkout) checkout.destroy();
         initializeCheckout();
 
-        // Show/hide iframe container
         const container = document.getElementById('checkout-container');
-        if (newMode === 'iframe') {
-          container.style.display = 'block';
-        } else {
-          container.style.display = 'none';
-        }
+        container.style.display = newMode === 'iframe' ? 'block' : 'none';
       });
     });
 
-    // Buy button handlers
+    // Buy button handlers — two-step: server creates invoice, SDK creates session
     document.querySelectorAll('.buy-btn').forEach((btn) => {
       btn.addEventListener('click', async (e) => {
         if (!checkout) {
@@ -533,70 +517,54 @@
           return;
         }
 
+        const originalText = btn.textContent.trim();
         const productId = btn.dataset.productId;
         const productName = btn.dataset.productName;
-        const price = parseFloat(btn.dataset.productPrice);
 
         btn.disabled = true;
         btn.textContent = 'Creating invoice...';
 
         try {
-          // Create invoice
-          const session = await checkout.createInvoice({
-            amount: price,
-            reference: `order-${Date.now()}`,
-            metadata: {
-              productId,
-              productName,
-              userId: 'user-123', // Replace with actual user ID
-            },
-          });
+          // Step 1 — server creates the invoice (secret key, server-side only)
+          const invoiceId = await createInvoiceOnServer({ productId, productName });
 
-          if (!session) {
-            throw new Error('Failed to create invoice');
-          }
+          btn.textContent = 'Opening checkout...';
 
-          showMessage(`Invoice created for ${productName}`, 'success');
+          // Step 2 — SDK attaches a checkout session to that invoice (publishable key)
+          const session = await checkout.createSession({ invoiceId });
+          if (!session) throw new Error('Failed to create checkout session');
 
-          // Open checkout UI
-          const openSession = await checkout.open();
-          if (!openSession) {
-            throw new Error('Failed to open checkout');
-          }
+          showMessage(`Session created for ${productName}`, 'success');
+
+          await checkout.open();
         } catch (error) {
           console.error('Error:', error);
           showMessage(`Error: ${error.message}`, 'error');
         } finally {
           btn.disabled = false;
-          btn.textContent = `Buy Now`;
+          btn.textContent = originalText;
         }
       });
     });
 
     function updateStatus(elementId, value) {
-      const element = document.getElementById(elementId);
-      if (element) {
-        element.textContent = value;
-      }
+      const el = document.getElementById(elementId);
+      if (el) el.textContent = value;
     }
 
     function showMessage(text, type = 'info') {
       const messagesDiv = document.getElementById('messages');
-      const messageEl = document.createElement('div');
-      messageEl.className = `${type}-message`;
-      messageEl.textContent = text;
-
-      messagesDiv.appendChild(messageEl);
-
-      // Auto-remove after 6 seconds
+      const el = document.createElement('div');
+      el.className = `${type}-message`;
+      el.textContent = text;
+      messagesDiv.appendChild(el);
       setTimeout(() => {
-        messageEl.style.opacity = '0';
-        messageEl.style.transition = 'opacity 0.3s';
-        setTimeout(() => messageEl.remove(), 300);
+        el.style.opacity = '0';
+        el.style.transition = 'opacity 0.3s';
+        setTimeout(() => el.remove(), 300);
       }, 6000);
     }
 
-    // Initialize on page load
     window.addEventListener('load', () => {
       initializeCheckout();
     });

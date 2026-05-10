@@ -2,14 +2,21 @@
 
 Browser and React SDK for accepting stablecoin payments. Supports popup, iframe, and redirect checkout flows with real-time payment status tracking.
 
+## How it works
+
+The SDK follows a two-step, server-first pattern:
+
+1. **Server-side** — your backend creates an invoice via `POST /v1/invoices` using your **secret key**. This is where payment parameters (amount, token, chains) are set.
+2. **Client-side** — the SDK calls `createSession({ invoiceId })` using your **publishable key** to attach a checkout UI to that invoice.
+
+This ensures payment parameters can never be tampered with from the browser.
+
 ## Features
 
 - 🎯 **Multiple checkout modes** — Popup, iframe, or redirect
-- 🔄 **Real-time updates** — SSE + polling for payment status
-- 🏪 **Marketplace-friendly** — Create multiple invoices with one instance
+- 🔄 **Real-time updates** — SSE for payment status
 - 🛡️ **Type-safe** — Full TypeScript support
 - 📦 **Lightweight** — ~11 KB minified (IIFE)
-- 🌍 **Multi-chain** — Ethereum, Polygon, Solana, Tron support
 - ⚙️ **Sandbox mode** — Built-in sandbox/production switching
 
 ## Installation
@@ -35,26 +42,21 @@ import SwiftPayCheckout from '@swiftpayfi/checkout-sdk';
 
 // 1. Initialize once per page
 const checkout = new SwiftPayCheckout({
-  key: 'pk_live_xxx',           // Your publishable key
-  token: 'USDC',                 // Default asset (can override per invoice)
-  chains: ['ethereum'],          // Supported chains
-  mode: 'iframe',                // popup | iframe | redirect
-  sandbox: false,                // Use sandbox API (https://sandbox-api.swiftpay.finance)
+  key: 'pk_live_xxx',   // Your publishable key
+  mode: 'iframe',       // popup | iframe | redirect
+  sandbox: false,
 });
 
 // 2. Listen for payment events
 checkout.on('payment.completed', ({ invoice }) => {
-  console.log('✅ Payment completed:', invoice.reference);
+  console.log('Payment completed:', invoice.reference);
   // Update your backend/UI
 });
 
-// 3. Create invoice for a product
-async function buyProduct(productId, price) {
-  const session = await checkout.createInvoice({
-    amount: price,
-    reference: productId,
-    metadata: { productId, userId: currentUser.id },
-  });
+// 3. Create a checkout session for a server-created invoice
+async function buyProduct(invoiceId) {
+  // invoiceId comes from your backend — created via POST /v1/invoices (secret key)
+  const session = await checkout.createSession({ invoiceId });
 
   if (session) {
     // 4. Open checkout UI
@@ -68,40 +70,31 @@ async function buyProduct(productId, price) {
 ```typescript
 import { useSwiftPayCheckout } from '@swiftpayfi/checkout-sdk/react';
 
-function CheckoutButton({ product }) {
+function CheckoutButton({ invoiceId }) {
   const {
-    createInvoice,
+    createSession,
     open,
     isLoading,
-    session,
     error,
   } = useSwiftPayCheckout({
     key: 'pk_live_xxx',
-    token: 'USDC',
-    chains: ['ethereum'],
     sandbox: false,
     onSuccess: ({ invoice }) => {
       console.log('Payment complete:', invoice);
-      // Fulfill order
     },
   });
 
   const handleCheckout = async () => {
-    const session = await createInvoice({
-      amount: product.price,
-      reference: product.id,
-    });
+    // invoiceId was created server-side via POST /v1/invoices
+    const session = await createSession({ invoiceId });
     if (session) {
       await open();
     }
   };
 
   return (
-    <button 
-      onClick={handleCheckout} 
-      disabled={isLoading}
-    >
-      {isLoading ? 'Loading...' : `Buy for $${product.price}`}
+    <button onClick={handleCheckout} disabled={isLoading}>
+      {isLoading ? 'Loading...' : 'Pay now'}
     </button>
   );
 }
@@ -120,50 +113,47 @@ new SwiftPayCheckout(options: SwiftPayCheckoutOptions)
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `key` | `string` | **required** | Publishable key from dashboard |
-| `token` | `string` | undefined | Default asset symbol (e.g. `USDC`, `USDT`) — can override per invoice |
-| `chains` | `string[]` | undefined | Default chains (e.g. `['ethereum', 'polygon']`) — can override per invoice |
 | `mode` | `'popup' \| 'iframe' \| 'redirect'` | `'popup'` | Checkout UI mode |
 | `sandbox` | `boolean` | `false` | Use sandbox API endpoint |
-| `callbackUrl` | `string` | current page | Redirect destination after payment (for redirect mode) |
+| `callbackUrl` | `string` | current page | Redirect destination after payment |
+| `checkout` | `CheckoutOverrides` | undefined | Default branding overrides, merged with per-session overrides in `createSession` |
 | `autoClose` | `boolean` | `true` | Auto-close on payment completion |
-| `pollIntervalMs` | `number` | `4000` | Status polling interval in ms |
 
-#### Automatic API Endpoints
+#### API Endpoints
 
 ```javascript
-// Production (default)
-sandbox: false
-// → https://api.swiftpay.finance
-
-// Sandbox/Testing
-sandbox: true
-// → https://sandbox-api.swiftpay.finance
+sandbox: false  // → https://api.swiftpay.finance
+sandbox: true   // → https://sandbox-api.swiftpay.finance
 ```
 
 ### Methods
 
-#### `createInvoice(options: CreateInvoiceOptions): Promise<CheckoutSessionResponse>`
+#### `createSession(options: CreateCheckoutSessionOptions): Promise<CheckoutSessionResponse>`
 
-Create a new invoice session. Must be called before `open()`.
+Attach a checkout UI to an existing invoice. Must be called before `open()`.
+
+The invoice must be created server-side via `POST /v1/invoices` using your secret key before calling this method.
 
 ```typescript
-const session = await checkout.createInvoice({
-  amount: 99.99,                    // Required: amount in USD
-  token: 'USDT',                    // Optional: override default asset
-  reference: 'order-12345',         // Optional: your order ID
-  chains: ['ethereum', 'solana'],   // Optional: override default chains
-  metadata: { orderId: '12345' },   // Optional: custom data
-  recipient: '0xaddress',           // Optional: recipient address
-  expiresAt: new Date(...),         // Optional: expiry time
+const session = await checkout.createSession({
+  invoiceId: 'uuid-of-server-created-invoice',  // Required
+  callbackUrl: 'https://yoursite.com/thanks',   // Optional: overrides SDK-level callbackUrl
+  checkout: { accentColor: '#6366f1' },         // Optional: branding overrides for this session
 });
 ```
 
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `invoiceId` | `string` (UUID) | **yes** | ID of a pre-existing invoice created server-side |
+| `callbackUrl` | `string` | no | Redirect URL after payment — must be in your allowlist |
+| `checkout` | `CheckoutOverrides` | no | Per-session branding overrides, merged with SDK-level defaults |
+
 #### `open(options?: { mode?: CheckoutMode }): Promise<CheckoutSessionResponse>`
 
-Open the checkout UI. Requires `createInvoice()` to be called first.
+Open the checkout UI. Requires `createSession()` to be called first.
 
 ```typescript
-// Use instance's default mode
+// Use the SDK's default mode
 await checkout.open();
 
 // Override mode for this open
@@ -180,7 +170,7 @@ checkout.close('manual');
 
 #### `getIframeElement(): HTMLIFrameElement | null`
 
-Get the iframe DOM element (iframe mode only). Useful for advanced customization.
+Get the iframe DOM element (iframe mode only).
 
 ```typescript
 const iframe = checkout.getIframeElement();
@@ -196,6 +186,7 @@ Get the current session data.
 ```typescript
 const session = checkout.getSession();
 console.log(session.invoice.status); // 'pending' | 'partial' | 'paid' | 'completed'
+console.log(session.branding?.accentColor); // merchant's accent color
 ```
 
 #### `destroy(): void`
@@ -228,7 +219,7 @@ unsubscribe();
 | `open` | `{ mode, checkoutUrl, session }` | Checkout UI opened |
 | `close` | `{ reason, session? }` | Checkout UI closed |
 | `cancel` | `{ reason, session? }` | User cancelled (not auto-closed) |
-| `error` | `{ error }` | Error during session creation or polling |
+| `error` | `{ error }` | Error during session creation or payment |
 | `status` | `{ status, previousStatus?, invoice, session }` | Invoice status changed |
 | `payment.pending` | `{ invoice, session }` | First payment detected |
 | `payment.partial` | `{ invoice, session }` | Partial payment received |
@@ -241,54 +232,123 @@ unsubscribe();
 
 ```typescript
 const {
-  instance,           // SwiftPayCheckout | null
-  createInvoice,      // (options) => Promise<session | null>
-  open,               // (options?) => Promise<session | null>
-  close,              // () => void
-  isReady,            // boolean
-  isLoading,          // boolean (during createInvoice/open)
-  session,            // CheckoutSessionResponse | null
-  branding,           // MerchantBranding | null
-  status,             // InvoiceStatus | null
-  error,              // CheckoutSDKError | null
+  instance,         // SwiftPayCheckout | null
+  createSession,    // (options: CreateCheckoutSessionOptions) => Promise<session | null>
+  open,             // (options?) => Promise<session | null>
+  close,            // () => void
+  isReady,          // boolean
+  isLoading,        // boolean (during createSession/open)
+  session,          // CheckoutSessionResponse | null
+  branding,         // MerchantBranding | null
+  status,           // InvoiceStatus | null
+  error,            // CheckoutSDKError | null
 } = useSwiftPayCheckout(options);
+```
+
+## Types
+
+### `CheckoutOverrides`
+
+Branding overrides the client may supply when creating a session. Only low-risk, non-URL fields are accepted — URL and name fields are always sourced from the merchant's server-side branding to prevent injection via a leaked publishable key.
+
+```typescript
+interface CheckoutOverrides {
+  accentColor?: string | null;               // e.g. '#6366f1'
+  themeMode?: 'light' | 'dark' | 'auto' | null;
+  sandbox?: boolean;
+}
+```
+
+### `CheckoutConfig`
+
+The resolved branding snapshot returned in every session response. Built server-side by merging the merchant's stored branding with any `CheckoutOverrides` supplied at session creation. Immutable after the session is created.
+
+```typescript
+interface CheckoutConfig {
+  brandName?: string | null;
+  logoUrl?: string | null;
+  faviconUrl?: string | null;
+  accentColor?: string | null;
+  themeMode?: 'light' | 'dark' | 'auto' | null;
+  supportEmail?: string | null;
+  termsUrl?: string | null;
+  privacyUrl?: string | null;
+  sandbox?: boolean;
+}
+```
+
+### `MerchantBranding`
+
+The UI-ready branding shape on `session.branding`. Contains only the fields the checkout page needs to theme itself — callback hosts and timestamps are excluded.
+
+```typescript
+interface MerchantBranding {
+  brandName: string | null;
+  logoUrl: string | null;
+  faviconUrl: string | null;
+  accentColor: string | null;
+  themeMode: 'light' | 'dark' | 'auto';
+  supportEmail: string | null;
+  termsUrl: string | null;
+  privacyUrl: string | null;
+}
 ```
 
 ## Patterns
 
-### Marketplace (Multiple Products)
+### Server-side invoice + client-side checkout
 
 ```javascript
-const checkout = new SwiftPayCheckout({ key: 'pk_live_...' });
-
-async function buyProduct(product) {
-  // Create invoice for this product
-  const session = await checkout.createInvoice({
+// Backend (Node.js example) — uses secret key
+const invoice = await fetch('https://api.swiftpay.finance/v1/invoices', {
+  method: 'POST',
+  headers: {
+    'X-Swift-Key': process.env.SWIFTPAY_SECRET_KEY,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    token: 'USDC',
     amount: product.price,
-    reference: product.id,
-    metadata: { category: product.category },
-  });
+    chains: ['evm'],
+    metadata: { orderId: order.id },
+  }),
+}).then(r => r.json());
 
-  // Show checkout
-  if (session) {
-    await checkout.open();
-  }
-}
+// Send invoice.data.id to the browser, then:
 
-// Later, buy a different product
-await buyProduct(anotherProduct);
+// Frontend — uses publishable key
+const session = await checkout.createSession({ invoiceId: invoice.data.id });
+await checkout.open();
 ```
 
-### Environment Switching
+### Branding overrides
+
+Per-session overrides are merged on top of the merchant's stored branding server-side. Only `accentColor`, `themeMode`, and `sandbox` can be overridden from the browser — URL and name fields are always server-controlled.
+
+```javascript
+const session = await checkout.createSession({
+  invoiceId,
+  checkout: {
+    accentColor: '#10b981', // override for this session
+    themeMode: 'dark',
+  },
+});
+
+// The resolved snapshot is available on the session:
+console.log(session.branding?.logoUrl);    // from merchant branding (server-controlled)
+console.log(session.branding?.accentColor); // '#10b981' (your override)
+```
+
+### Environment switching
 
 ```javascript
 const checkout = new SwiftPayCheckout({
   key: process.env.REACT_APP_SWIFTPAY_KEY,
-  sandbox: process.env.NODE_ENV === 'development',
+  sandbox: process.env.NODE_ENV !== 'production',
 });
 ```
 
-### Iframe with Custom Styling
+### Iframe with custom container
 
 ```javascript
 const checkout = new SwiftPayCheckout({
@@ -302,7 +362,6 @@ const checkout = new SwiftPayCheckout({
   },
 });
 
-// Access and style the iframe
 const iframe = checkout.getIframeElement();
 if (iframe) {
   iframe.style.borderRadius = '12px';
@@ -310,16 +369,14 @@ if (iframe) {
 }
 ```
 
-### Handling All Payment States
+### Handling all payment states
 
 ```javascript
 checkout.on('payment.pending', ({ invoice }) => {
-  // Show "waiting for payment" UI
   updateUI('pending');
 });
 
 checkout.on('payment.partial', ({ invoice }) => {
-  // Show "partial payment received" with expected amount
   updateUI('partial', {
     received: invoice.pendingAmount,
     expected: invoice.amountExpected,
@@ -327,12 +384,10 @@ checkout.on('payment.partial', ({ invoice }) => {
 });
 
 checkout.on('payment.paid', ({ invoice }) => {
-  // Show "payment received, confirming..."
   updateUI('confirming');
 });
 
 checkout.on('payment.completed', ({ invoice }) => {
-  // Payment settled — fulfill order
   updateUI('completed');
   fulfillOrder(invoice.externalRef);
 });
@@ -342,16 +397,7 @@ checkout.on('payment.completed', ({ invoice }) => {
 
 ```javascript
 try {
-  const session = await checkout.createInvoice({
-    amount: 100,
-    reference: 'order-123',
-  });
-
-  if (!session) {
-    console.error('Failed to create invoice');
-    return;
-  }
-
+  const session = await checkout.createSession({ invoiceId });
   await checkout.open();
 } catch (error) {
   if (error instanceof CheckoutSDKError) {
@@ -359,12 +405,22 @@ try {
   }
 }
 
-// Listen for errors
+// Listen for async errors
 checkout.on('error', ({ error }) => {
   console.error('Checkout error:', error.message);
-  // Show error UI
 });
 ```
+
+#### Common error codes
+
+| Code | Cause |
+|------|-------|
+| `invalid_options` | Missing or malformed `invoiceId` |
+| `no_session` | `open()` called before `createSession()` |
+| `origin_forbidden` | Origin not in publishable key's allowlist |
+| `http_404` | Invoice not found or doesn't belong to this merchant |
+| `session_expired` | Checkout session has expired |
+| `instance_destroyed` | Method called after `destroy()` |
 
 ## Development
 
@@ -383,23 +439,12 @@ npm run build:iife    # Standalone browser script
 npm run dev           # TypeScript compilation with watch
 ```
 
-### Testing
-
-```bash
-# No tests configured yet
-npm run test
-```
-
 ## Publishing
 
 Uses [Changesets](/.changeset/README.md) for version management.
 
 ```bash
-# Add a changeset when making changes
 npx changeset add
-
-# On main: Creates "Version Packages" PR
-# On dev: Publishes beta immediately
 ```
 
 ## Browser Support
@@ -410,11 +455,13 @@ npx changeset add
 
 ## Security
 
-- ✅ Uses HTTPS only
-- ✅ Publishable key (not secret)
+- ✅ Payment parameters (amount, token, chains) are set server-side only — never from the browser
+- ✅ Publishable key used for checkout UI only — cannot create or mutate invoices
+- ✅ Branding overrides restricted to low-risk fields — URL and name fields are always server-controlled
+- ✅ HTTPS only
 - ✅ CORS configured
-- ✅ No sensitive data in logs
 - ✅ postMessage origin validation
+- ✅ Callback URL validated against merchant's allowlist
 
 ## License
 

@@ -7,71 +7,48 @@ import ModeSelector from './components/ModeSelector'
 import MessageList from './components/MessageList'
 
 const PRODUCTS = [
-  {
-    id: 'song-01',
-    name: 'Premium Song',
-    description: 'High-quality audio download',
-    emoji: '🎵',
-    price: 9.99,
-  },
-  {
-    id: 'app-01',
-    name: 'Premium App',
-    description: 'Lifetime license & updates',
-    emoji: '📱',
-    price: 49.99,
-  },
-  {
-    id: 'dlc-01',
-    name: 'Game DLC Pack',
-    description: '3 expansions + cosmetics',
-    emoji: '🎮',
-    price: 24.99,
-  },
-  {
-    id: 'course-01',
-    name: 'Online Course',
-    description: '12-week certification program',
-    emoji: '🎓',
-    price: 199.99,
-  },
-  {
-    id: 'nft-01',
-    name: 'Digital Art NFT',
-    description: 'Limited edition 1/100',
-    emoji: '🖼️',
-    price: 99.99,
-  },
-  {
-    id: 'coffee-01',
-    name: 'Coffee Subscription',
-    description: 'Monthly specialty beans',
-    emoji: '☕',
-    price: 19.99,
-  },
+  { id: 'song-01',    name: 'Premium Song',         description: 'High-quality audio download',    emoji: '🎵', price: 9.99 },
+  { id: 'app-01',     name: 'Premium App',           description: 'Lifetime license & updates',     emoji: '📱', price: 49.99 },
+  { id: 'dlc-01',     name: 'Game DLC Pack',         description: '3 expansions + cosmetics',       emoji: '🎮', price: 24.99 },
+  { id: 'course-01',  name: 'Online Course',         description: '12-week certification program',  emoji: '🎓', price: 199.99 },
+  { id: 'nft-01',     name: 'Digital Art NFT',       description: 'Limited edition 1/100',          emoji: '🖼️', price: 99.99 },
+  { id: 'coffee-01',  name: 'Coffee Subscription',   description: 'Monthly specialty beans',        emoji: '☕', price: 19.99 },
 ]
 
 type CheckoutMode = 'popup' | 'iframe' | 'redirect'
 type Message = { id: string; text: string; type: 'info' | 'success' | 'error' }
+
+// ---------------------------------------------------------------------------
+// Server-side step: your backend creates the invoice with your secret key.
+// The browser never sees the secret key or controls payment parameters.
+// Replace this with a real fetch to your own API endpoint.
+// ---------------------------------------------------------------------------
+async function createInvoiceOnServer(product: { id: string; name: string }): Promise<string> {
+  const res = await fetch('/api/create-invoice', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ productId: product.id, productName: product.name }),
+  })
+  if (!res.ok) throw new Error('Failed to create invoice on server')
+  const { invoiceId } = await res.json()
+  return invoiceId
+}
 
 export default function App() {
   const [mode, setMode] = useState<CheckoutMode>('popup')
   const [messages, setMessages] = useState<Message[]>([])
 
   const {
-    createInvoice,
+    createSession,
     open,
     isLoading,
     session,
     status,
     error,
   } = useSwiftPayCheckout({
-    // Uses local SDK from ../../checkout (file: protocol in package.json)
     key: 'pk_test_G2ok56N9gFFbia3jSQ8hjJZpAvv9m68iAgg2CTeWw2AT', // Replace with your publishable key
-    token: 'USDC',
-    chains: ['sepolia', 'base-sepolia', 'solana-devnet'],
     mode,
-    sandbox: true, // Use sandbox for testing
+    sandbox: true,
     onSuccess: ({ invoice }) => {
       addMessage(`✅ Payment completed! Reference: ${invoice.reference}`, 'success')
     },
@@ -91,54 +68,22 @@ export default function App() {
   }
 
   const handleBuy = async (product: (typeof PRODUCTS)[0]) => {
-    // if (!session) {
-    //   addMessage('Please set your publishable key in App.tsx', 'error')
-    //   return
-    // }
-
     try {
-      const invoiceSession = await createInvoice({
-        amount: product.price,
-        reference: `order-${Date.now()}`,
-        metadata: {
-          productId: product.id,
-          productName: product.name,
-          userId: 'user-123',
-        },
-      })
+      // Step 1 — server creates the invoice (secret key, server-side only)
+      const invoiceId = await createInvoiceOnServer(product)
 
-      if (!invoiceSession) {
-        throw new Error('Failed to create invoice')
-      }
+      // Step 2 — SDK attaches a checkout session to that invoice (publishable key)
+      const invoiceSession = await createSession({ invoiceId })
+      if (!invoiceSession) throw new Error('Failed to create checkout session')
 
-      addMessage(`Invoice created for ${product.name}`, 'success')
+      addMessage(`Session created for ${product.name}`, 'success')
 
-      const openSession = await open()
-      if (!openSession) {
-        throw new Error('Failed to open checkout')
-      }
+      await open()
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
       addMessage(`Error: ${message}`, 'error')
     }
   }
-
-  // if (!session) {
-  //   return (
-  //     <div className="app-container">
-  //       <header className="app-header">
-  //         <h1>SwiftPay Checkout</h1>
-  //         <p className="subtitle">React Example</p>
-  //       </header>
-  //       <div className="error-banner">
-  //         <p>
-  //           ⚠️ Please update your publishable key in <code>src/App.tsx</code> line 65
-  //         </p>
-  //         <p>Get one from https://dashboard.swiftpay.finance</p>
-  //       </div>
-  //     </div>
-  //   )
-  // }
 
   return (
     <div className="app-container">
